@@ -1,4 +1,4 @@
-#include "uml/managers/protocol/umlClient.h"
+#include "uml-server/umlClient.h"
 #include "uml/uml-stable.h"
 #include "yaml-cpp/yaml.h"
 #include <sys/socket.h>

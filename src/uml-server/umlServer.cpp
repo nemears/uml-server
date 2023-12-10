@@ -1,4 +1,4 @@
-#include "uml/managers/protocol/umlServer.h"
+#include "uml-server/umlServer.h"
 #ifndef WIN32
 #include <sys/socket.h>
 #include <sys/types.h>

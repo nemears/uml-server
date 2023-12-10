@@ -4,7 +4,7 @@
 #include <cstring>
 #include <netinet/tcp.h>
 #include <unistd.h>
-#include "uml/managers/protocol/serverPersistencePolicy.h"
+#include "uml-server/serverPersistencePolicy.h"
 #include "uml/managers/abstractManager.h"
 #include "uml/managers/serialization/open_uml/openUmlSerializationPolicy.h"
 #include "yaml-cpp/yaml.h"

@@ -44,12 +44,19 @@
                     ''
                     mkdir -p $out/lib $out/include $out/bin
                     cp uml-server $out/bin
-                    cp libuml-server-protocol.a $out/lib
+                    cp libuml-server-protocol.so $out/lib
                     cp -r $src/include/uml-server $out/include
                     '';
                 };
 
                 packages.default = self.packages.${system}.uml-server;
+
+                apps.uml-server = {
+                    type = "app";
+                    program = "${self.packages.${system}.uml-server}/bin/uml-server";
+                };
+
+                apps.default = self.apps.${system}.uml-server;
             }
         );
 }

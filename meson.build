@@ -1,4 +1,4 @@
-project('uml-server', 'cpp', version : '0.0.1')
+project('uml-server', 'cpp', version : '0.0.2')
 yaml_cpp = dependency('yaml-cpp')
 include_dir = include_directories('include')
 

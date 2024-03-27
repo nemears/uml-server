@@ -28,11 +28,13 @@ typedef size_t ssize_t;
 using namespace UML;
 
 void UmlServer::sendMessage(UmlServer::ClientInfo& info, std::string& data) {
-    size_t dataSize = data.size() + 1;
-    send(info.socket, (void*)(long) dataSize, 8, 0);
-    size_t total_bytes_sent = 0;
+    uint64_t dataSize = data.size() + 1;
+    uint64_t dataSizeNetwork = htobe64(dataSize);
+    send(info.socket, &dataSizeNetwork, sizeof(uint64_t), 0);
+    uint64_t total_bytes_sent = 0;
+    const char* data_buffer = data.c_str();
     while (total_bytes_sent < dataSize) {
-        int bytesSent = send(info.socket, data.c_str(), UML_SERVER_MSG_SIZE, 0);
+        int bytesSent = send(info.socket, data_buffer + total_bytes_sent, UML_SERVER_MSG_SIZE, 0);
         if (bytesSent <= 0) {
             throw ManagerStateException();
         }

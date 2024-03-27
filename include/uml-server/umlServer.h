@@ -62,6 +62,7 @@ namespace UML {
             static void garbageCollector(UmlServer* me);
             static void zombieKiller(UmlServer* me);
             void handleMessage(ID id, std::string buff);
+            void sendMessage(ClientInfo& info, std::string& data);
             std::thread* m_acceptThread = 0;
             std::thread* m_garbageCollectionThread = 0;
             std::thread* m_zombieKillerThread = 0;

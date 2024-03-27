@@ -27,6 +27,19 @@ typedef size_t ssize_t;
 
 using namespace UML;
 
+void UmlServer::sendMessage(UmlServer::ClientInfo& info, std::string& data) {
+    size_t dataSize = data.size() + 1;
+    send(info.socket, (void*)(long) dataSize, 8, 0);
+    size_t total_bytes_sent = 0;
+    while (total_bytes_sent < dataSize) {
+        int bytesSent = send(info.socket, data.c_str(), UML_SERVER_MSG_SIZE, 0);
+        if (bytesSent <= 0) {
+            throw ManagerStateException();
+        }
+        total_bytes_sent += bytesSent;
+    }
+}
+
 void UmlServer::handleMessage(ID id, std::string buff) {
     ClientInfo& info = m_clients[id];
     log("server got message from client(" + id.string() + "):\n" + std::string(buff));
@@ -72,17 +85,14 @@ void UmlServer::handleMessage(ID id, std::string buff) {
         data.mode = SerializationMode::WHOLE;
         data.isJSON = false;
         std::string dump = emit(*getRoot(), data);
-        int bytesSent = send(info.socket, dump.c_str(), dump.size() + 1, 0);
-        if (bytesSent <= 0) {
-            throw ManagerStateException();
-        }
+        sendMessage(info, dump);
         log("dumped server data to client, data: " + dump);
     } else if (node["GET"] || node["get"]) {
         ID elID;
         YAML::Node getNode = (node["GET"] ? node["GET"] : node["get"]);
         if (!getNode.IsScalar()) {
-            const char* msg = "ERROR";
-            send(info.socket, msg, 6, 0);
+            std::string msg = "ERROR";
+            sendMessage(info, msg);
             return;
         }
         if (isValidID(getNode.as<std::string>())) {
@@ -94,7 +104,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             } catch (std::exception& e) {
                 log(e.what());
                 std::string msg = std::string("{\"ERROR\":\"") + std::string(e.what()) + std::string("\"}");
-                send(info.socket, msg.c_str(), msg.length() + 1 , 0);
+                sendMessage(info, msg);
                 return;
             }
         }
@@ -103,15 +113,12 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             EmitterData data;
             data.isJSON = true;
             std::string msg = emit(el, data);
-            int bytesSent = send(info.socket, msg.c_str(), msg.size() + 1, 0);
-            if (bytesSent <= 0) {
-                throw ManagerStateException();
-            }
+            sendMessage(info, msg);
             log("server got element " +  elID.string() + " for client " + id.string() + ":\n" + msg);
         } catch (std::exception& e) {
             log(e.what());
             std::string msg = std::string("{\"ERROR\":\"") + std::string(e.what()) + std::string("\"}");
-            send(info.socket, msg.c_str(), msg.length() + 1, 0);
+            sendMessage(info, msg);
         }
     } else if (node["POST"] || node["post"]) {
         log("server handling post request from client " + id.string());

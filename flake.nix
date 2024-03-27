@@ -16,9 +16,12 @@
                     packages = with pkgs; [ 
                     # build dependencies
                     meson
+                    pkg-config
+                    ninja
 
                     # dev dependencies
                     yaml-cpp
+                    gtest
                     uml-cpp.outputs.packages.${system}.default
 
                     # debug dependencies

@@ -35,11 +35,6 @@
                     src = ./.;
                     buildInputs = with pkgs; [meson pkg-config coreutils yaml-cpp uml-cpp.outputs.packages.${system}.default ninja];
                     umlcpp = uml-cpp.outputs.packages.${system}.default;
-                    preConfigure = ''
-                    export PKG_CONFIG_PATH_FOR_TARGET=$umlcpp/lib:$PKG_CONFIG_PATH_FOR_TARGET
-                    echo $PKG_CONFIG_PATH_FOR_TARGET
-                    pkg-config --list-all
-                    '';
                     postConfigure = ''
                     meson configure -DserverTests=false
                     '';

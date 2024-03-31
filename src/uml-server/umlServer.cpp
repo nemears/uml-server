@@ -6,6 +6,7 @@
 #include <iostream>
 #include <unistd.h>
 #include <poll.h>
+#include <netinet/tcp.h>
 #else
 #include <ws2tcpip.h>
 #include <stdio.h>
@@ -537,8 +538,15 @@ void UmlServer::start() {
         throw ManagerStateException("Server could not get socket from addressinfo, error: " + std::string(strerror(errno)));
     }
 
-    int enable = 1;
-    if (setsockopt(m_socketD, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
+    // allow address reuse
+    int enable_reuse_addr = 1;
+    if (setsockopt(m_socketD, SOL_SOCKET, SO_REUSEADDR, &enable_reuse_addr, sizeof(int)) < 0) {
+        throw ManagerStateException("Server could not set socket options, error: " + std::string(strerror(errno)));
+    }
+
+    // disable NAGLES algorithm cause we tend to send small bits of data instead of large messages
+    int enable_tcp_nodelay = 1;
+    if (setsockopt(m_socketD, IPPROTO_TCP, TCP_NODELAY, &enable_tcp_nodelay, sizeof(int)) < 0) {
         throw ManagerStateException("Server could not set socket options, error: " + std::string(strerror(errno)));
     }
 

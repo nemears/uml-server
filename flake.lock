@@ -38,16 +38,16 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1705957679,
-        "narHash": "sha256-Q8LJaVZGJ9wo33wBafvZSzapYsjOaNjP/pOnSiKVGHY=",
+        "lastModified": 1719244020,
+        "narHash": "sha256-ntKqNAm4KyOwU3J75EL6ZuNlPIRhcKY9ivKikORJXXo=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "9a333eaa80901efe01df07eade2c16d183761fa3",
+        "rev": "89d69bf4d498acc7482ebe7288858f3b7194e851",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "release-23.05",
+        "ref": "release-24.05",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -111,11 +111,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1711815185,
-        "narHash": "sha256-HzzOe+9s67LwWlHWYIa+vxbWMBVCsVY7RXfFDkElwpY=",
+        "lastModified": 1719243245,
+        "narHash": "sha256-LltMWuJk2B9jPm2AzEJGfWY+7LwlUNNWWWdYcQ03ws4=",
         "owner": "nemears",
         "repo": "uml-cpp",
-        "rev": "a5908e0516672809d077df6bc6c5c38c69c174fd",
+        "rev": "301c62ff0ecb921a05f522696484175815a2e521",
         "type": "github"
       },
       "original": {

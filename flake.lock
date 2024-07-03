@@ -23,11 +23,11 @@
         "systems": "systems_2"
       },
       "locked": {
-        "lastModified": 1705309234,
-        "narHash": "sha256-uNRRNRKmJyCRC/8y1RqBkqWBLM034y4qN7EprSdmgyA=",
+        "lastModified": 1710146030,
+        "narHash": "sha256-SZ5L6eA7HJ/nmkzGG7/ISclqe6oZdOZTNoesiInkXPQ=",
         "owner": "numtide",
         "repo": "flake-utils",
-        "rev": "1ef2e671c3b0c19053962c07dbda38332dcebf26",
+        "rev": "b1d9ab70662946ef0850d488da1c9019f3a9752a",
         "type": "github"
       },
       "original": {
@@ -38,11 +38,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1719244020,
-        "narHash": "sha256-ntKqNAm4KyOwU3J75EL6ZuNlPIRhcKY9ivKikORJXXo=",
+        "lastModified": 1720015685,
+        "narHash": "sha256-tfRv6i8ncuY1EMf03MIw8uL/+wwzckB6cV25zGgdvfM=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "89d69bf4d498acc7482ebe7288858f3b7194e851",
+        "rev": "85f6b7357bd9c8eb0732d6ba0dde65d6cf0683cf",
         "type": "github"
       },
       "original": {
@@ -54,16 +54,16 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1705033721,
-        "narHash": "sha256-K5eJHmL1/kev6WuqyqqbS1cdNnSidIZ3jeqJ7GbrYnQ=",
+        "lastModified": 1719844167,
+        "narHash": "sha256-fp4esf9L3JX2olhxr5Nck2T2jesJ1T7Mvw8CA9cC+KU=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "a1982c92d8980a0114372973cbdfe0a307f1bdea",
+        "rev": "6d2cb2bff6f25d82c4e381f922ebe952270b23a0",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "release-23.05",
+        "ref": "release-24.05",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -111,11 +111,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1719243245,
-        "narHash": "sha256-LltMWuJk2B9jPm2AzEJGfWY+7LwlUNNWWWdYcQ03ws4=",
+        "lastModified": 1719847206,
+        "narHash": "sha256-crZCrVuUpW217dQ4WuN8qAcVtbMZSsbKhhHnnC8OEDc=",
         "owner": "nemears",
         "repo": "uml-cpp",
-        "rev": "301c62ff0ecb921a05f522696484175815a2e521",
+        "rev": "e919d9afdb4bc60140408d63c5b0ee0469f496ad",
         "type": "github"
       },
       "original": {

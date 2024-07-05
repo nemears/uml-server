@@ -2,9 +2,9 @@
     description = "A server to host a single instance of a uml model";
 
     inputs = {
-        nixpkgs.url = "github:NixOS/nixpkgs/release-24.05";
         flake-utils.url = "github:numtide/flake-utils";
         uml-cpp.url = "github:nemears/uml-cpp";
+        nixpkgs.follows = "uml-cpp/nixpkgs";
     };
 
     outputs = { self, nixpkgs, flake-utils, uml-cpp }:

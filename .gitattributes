@@ -1,0 +1,2 @@
+# When there's a conflict in flake.loxk, use the lockfile from the current branch
+flake.lock merge=ours

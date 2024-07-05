@@ -38,43 +38,16 @@
     },
     "nixpkgs": {
       "locked": {
-<<<<<<< HEAD
-        "lastModified": 1720015685,
-        "narHash": "sha256-tfRv6i8ncuY1EMf03MIw8uL/+wwzckB6cV25zGgdvfM=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "85f6b7357bd9c8eb0732d6ba0dde65d6cf0683cf",
-=======
         "lastModified": 1720172719,
         "narHash": "sha256-+L4UyMjGUdt/06qdBmZAHJsvtU2B/7effcifFfc0H8o=",
         "owner": "NixOS",
         "repo": "nixpkgs",
         "rev": "853658e9a003ffcecd9d162d2a862ef5bd178761",
->>>>>>> e50a946 (updated flake inputs, not using nixpkgs 23, using newer uml-cpp and following its nixpkgs)
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
         "ref": "release-24.05",
-<<<<<<< HEAD
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs_2": {
-      "locked": {
-        "lastModified": 1719844167,
-        "narHash": "sha256-fp4esf9L3JX2olhxr5Nck2T2jesJ1T7Mvw8CA9cC+KU=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "6d2cb2bff6f25d82c4e381f922ebe952270b23a0",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "release-24.05",
-=======
->>>>>>> e50a946 (updated flake inputs, not using nixpkgs 23, using newer uml-cpp and following its nixpkgs)
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -125,19 +98,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-<<<<<<< HEAD
-        "lastModified": 1719847206,
-        "narHash": "sha256-crZCrVuUpW217dQ4WuN8qAcVtbMZSsbKhhHnnC8OEDc=",
-        "owner": "nemears",
-        "repo": "uml-cpp",
-        "rev": "e919d9afdb4bc60140408d63c5b0ee0469f496ad",
-=======
         "lastModified": 1720182375,
         "narHash": "sha256-VlVlBiA8WjHJ33+kTztm2AYMZ2FzktMmpt1fulzHOGo=",
         "owner": "nemears",
         "repo": "uml-cpp",
         "rev": "fbfcfcc70c48898a40347afeb6d4f4e692035a63",
->>>>>>> e50a946 (updated flake inputs, not using nixpkgs 23, using newer uml-cpp and following its nixpkgs)
         "type": "github"
       },
       "original": {

@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include "uml-server/serverPersistencePolicy.h"
 #include "uml/managers/abstractManager.h"
-#include "uml/managers/serialization/open_uml/openUmlSerializationPolicy.h"
+#include "uml/managers/serialization/uml-cafe/openUmlSerializationPolicy.h"
 #include "yaml-cpp/yaml.h"
 
 using namespace std;

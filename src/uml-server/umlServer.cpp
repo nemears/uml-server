@@ -1,3 +1,4 @@
+#include "uml/uml-stable.h"
 #include "uml-server/umlServer.h"
 #ifndef WIN32
 #include <sys/socket.h>
@@ -14,8 +15,7 @@
 #include <thread>
 #include <yaml-cpp/yaml.h>
 #include "uml/forwardDeclarations.h"
-#include "uml/managers/serialization/open_uml/parse.h"
-#include "uml/uml-stable.h"
+#include "uml/managers/serialization/uml-cafe/parse.h"
 #include <chrono>
 #include <ctime>
 #include <iomanip>

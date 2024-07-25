@@ -56,7 +56,7 @@
                     url = "ssh://git@github.com/nemears/uml-server.git";
                     rev = "9116beadcb61eb6657a222d7b721d3aa690b04e3";
                   };
-                  umlcpp = uml-cpp.outputs.packages.${system}.uml-cpp_0_3_6;
+                  umlcpp = uml-cpp.outputs.packages.${system}.uml-cpp_0_3_5;
                 };
 
                 packages.default = self.packages.${system}.uml-server;
@@ -64,6 +64,10 @@
                 apps.uml-server = {
                     type = "app";
                     program = "${self.packages.${system}.uml-server}/bin/uml-server";
+                };
+		apps.uml-server_0_1_1 = {
+                  type = "app";
+                  program = "${self.packages.${system}.uml-server_0_1_1}/bin/uml-server";
                 };
 
                 apps.default = self.apps.${system}.uml-server;

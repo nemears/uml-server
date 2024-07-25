@@ -12,7 +12,7 @@
         (system:
             let 
               pkgs = nixpkgs.legacyPackages.${system};
-              mkUmlServer = { src, umlcpp } : pkgs.stdenv.mkDerivation {
+              mkUmlServer = { src, umlcpp ? uml-cpp.outputs.packages.${system}.default } : pkgs.stdenv.mkDerivation {
                     name = "uml-server";
                     inherit src umlcpp;
                     buildInputs = with pkgs; [meson pkg-config coreutils yaml-cpp umlcpp ninja];
@@ -50,12 +50,11 @@
 
                 packages.uml-server = mkUmlServer {
                   src = ./.;
-                  umlcpp = uml-cpp.outputs.packages.${system}.default;
                 };
                 packages.uml-server_0_1_1 = mkUmlServer {
                   src = builtins.fetchGit {
                     url = "ssh://git@github.com/nemears/uml-server.git";
-                    rev = "3855f949036232b88c54b36809ae9205cac9532f";
+                    rev = "9116beadcb61eb6657a222d7b721d3aa690b04e3";
                   };
                   umlcpp = uml-cpp.outputs.packages.${system}.uml-cpp_0_3_6;
                 };

@@ -1,7 +1,6 @@
 #ifndef _UML_UML_SERVER_H_
 #define _UML_UML_SERVER_H_
 
-#include "uml/forwardDeclarations.h"
 #include "uml/managers/manager.h"
 #include <atomic>
 #include <iostream>

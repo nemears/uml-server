@@ -14,7 +14,6 @@
 #endif
 #include <thread>
 #include <yaml-cpp/yaml.h>
-#include "uml/forwardDeclarations.h"
 #include "uml/managers/serialization/uml-cafe/parse.h"
 #include <chrono>
 #include <ctime>

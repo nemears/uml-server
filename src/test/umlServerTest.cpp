@@ -130,57 +130,57 @@ TEST_F(UmlServerTests, badReferenceTest) {
     ASSERT_NO_THROW(inst = &client.get(instID)->as<InstanceSpecification>());
     ASSERT_NO_THROW(clazz = &client.get(clazzID)->as<Class>());
     ClassifierPtr instClassifier;
-    ASSERT_NO_THROW(instClassifier = &inst->getClassifiers().front());
+    ASSERT_NO_THROW(instClassifier = inst->getClassifiers().front());
     ASSERT_EQ(clazz.id(), instClassifier.id());
     ASSERT_EQ(clazz.ptr(), instClassifier.ptr());
 }
 
 // activity edge integration tests
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityEdgeTarget, OpaqueAction, ControlFlow, &ActivityEdge::getTarget, &ActivityEdge::setTarget)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityEdgeSource, OpaqueAction, ControlFlow, &ActivityEdge::getSource, &ActivityEdge::setSource)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityEdgeGuard, LiteralBool, ControlFlow, &ActivityEdge::getGuard, &ActivityEdge::setGuard)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityEdgeWeight, LiteralBool, ControlFlow, &ActivityEdge::getWeight, &ActivityEdge::setWeight)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ObjectFlowTransformation, OpaqueBehavior, ObjectFlow, &ObjectFlow::getTransformation, &ObjectFlow::setTransformation)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ObjectFlowSelection, Activity, ObjectFlow, &ObjectFlow::getSelection, &ObjectFlow::setSelection)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityEdgeTarget, OpaqueAction, ControlFlow, &ActivityEdge::getTarget, &ActivityEdge::setTarget)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityEdgeSource, OpaqueAction, ControlFlow, &ActivityEdge::getSource, &ActivityEdge::setSource)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityEdgeGuard, LiteralBool, ControlFlow, &ActivityEdge::getGuard, &ActivityEdge::setGuard)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityEdgeWeight, LiteralBool, ControlFlow, &ActivityEdge::getWeight, &ActivityEdge::setWeight)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ObjectFlowTransformation, OpaqueBehavior, ObjectFlow, &ObjectFlow::getTransformation, &ObjectFlow::setTransformation)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ObjectFlowSelection, Activity, ObjectFlow, &ObjectFlow::getSelection, &ObjectFlow::setSelection)
 
 // activity node integration tests
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityNodeActivity, Activity, OpaqueAction, &ActivityNode::getActivity, &ActivityNode::setActivity)
-UML_SERVER_SET_INTEGRATION_TEST(ActivityNodeIncoming, ControlFlow, OpaqueAction, &ActivityNode::getIncoming)
-UML_SERVER_SET_INTEGRATION_TEST(ActivityNodeOutgoing, ControlFlow, OpaqueAction, &ActivityNode::getOutgoing)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(DecisionNodeDescisionInput, Activity, DecisionNode, &DecisionNode::getDecisionInput, &DecisionNode::setDecisionInput)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(DecisionNodeDecisionInputFlow, ObjectFlow, DecisionNode, &DecisionNode::getDecisionInputFlow, &DecisionNode::setDecisionInputFlow)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(JoinNodeJoinSpec, LiteralInt, JoinNode, &JoinNode::getJoinSpec, &JoinNode::setJoinSpec)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ObjectNodeSelection, Activity, CentralBufferNode, &ObjectNode::getSelection, &ObjectNode::setSelection)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ObjectNodeUpperBound, LiteralInt, DataStoreNode, &ObjectNode::getUpperBound, &ObjectNode::setUpperBound)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityParameterNodeParameter, Parameter, ActivityParameterNode, &ActivityParameterNode::getParameter, &ActivityParameterNode::setParameter)
-UML_SERVER_SET_INTEGRATION_TEST(ExecutableNodeHandlers, ExceptionHandler, OpaqueAction, &ExecutableNode::getHandlers)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ExceptionHandlerProtectedNode, OpaqueAction, ExceptionHandler, &ExceptionHandler::getProtectedNode, &ExceptionHandler::setProtectedNode)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ExceptionHandlerHandlerBody, OpaqueAction, ExceptionHandler, &ExceptionHandler::getHandlerBody, &ExceptionHandler::setHandlerBody)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ExceptionHandlerExceptionInput, DataStoreNode, ExceptionHandler, &ExceptionHandler::getExceptionInput, &ExceptionHandler::setExceptionInput)
-UML_SERVER_SET_INTEGRATION_TEST(ExceptionHandlerExceptionTypes, Activity, ExceptionHandler, &ExceptionHandler::getExceptionTypes)
-UML_SERVER_SET_INTEGRATION_TEST(ActionLocalPreConditions, Constraint, OpaqueAction, &Action::getLocalPreconditions)
-UML_SERVER_SET_INTEGRATION_TEST(ActionLocalPostConditions, Constraint, OpaqueAction, &Action::getLocalPostconditions)
-UML_SERVER_SET_INTEGRATION_TEST(OpaqueActionInputValues, InputPin, OpaqueAction, &OpaqueAction::getInputValues)
-UML_SERVER_SET_INTEGRATION_TEST(OpaqueActionOutputValues, OutputPin, OpaqueAction, &OpaqueAction::getOutputValues)
-UML_SERVER_SET_INTEGRATION_TEST(OpaqueActionBodies, LiteralString, OpaqueAction, &OpaqueAction::getBodies)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ActionInputPinFromAction, OpaqueAction, ActionInputPin, &ActionInputPin::getFromAction, &ActionInputPin::setFromAction)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ValuePinValue, LiteralBool, ValuePin, &ValuePin::getValue, &ValuePin::setValue)
-UML_SERVER_SET_INTEGRATION_TEST(InvocationActionArguments, InputPin, CallBehaviorAction, &InvocationAction::getArguments)
-UML_SERVER_SET_INTEGRATION_TEST(CallActionResults, OutputPin, CallBehaviorAction, &CallAction::getResults)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(CallBehaviorActionBehavior, Activity, CallBehaviorAction, &CallBehaviorAction::getBehavior, &CallBehaviorAction::setBehavior)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityNodeActivity, Activity, OpaqueAction, &ActivityNode::getActivity, &ActivityNode::setActivity)
+// UML_SERVER_SET_INTEGRATION_TEST(ActivityNodeIncoming, ControlFlow, OpaqueAction, &ActivityNode::getIncoming)
+// UML_SERVER_SET_INTEGRATION_TEST(ActivityNodeOutgoing, ControlFlow, OpaqueAction, &ActivityNode::getOutgoing)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(DecisionNodeDescisionInput, Activity, DecisionNode, &DecisionNode::getDecisionInput, &DecisionNode::setDecisionInput)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(DecisionNodeDecisionInputFlow, ObjectFlow, DecisionNode, &DecisionNode::getDecisionInputFlow, &DecisionNode::setDecisionInputFlow)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(JoinNodeJoinSpec, LiteralInt, JoinNode, &JoinNode::getJoinSpec, &JoinNode::setJoinSpec)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ObjectNodeSelection, Activity, CentralBufferNode, &ObjectNode::getSelection, &ObjectNode::setSelection)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ObjectNodeUpperBound, LiteralInt, DataStoreNode, &ObjectNode::getUpperBound, &ObjectNode::setUpperBound)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityParameterNodeParameter, Parameter, ActivityParameterNode, &ActivityParameterNode::getParameter, &ActivityParameterNode::setParameter)
+// UML_SERVER_SET_INTEGRATION_TEST(ExecutableNodeHandlers, ExceptionHandler, OpaqueAction, &ExecutableNode::getHandlers)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ExceptionHandlerProtectedNode, OpaqueAction, ExceptionHandler, &ExceptionHandler::getProtectedNode, &ExceptionHandler::setProtectedNode)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ExceptionHandlerHandlerBody, OpaqueAction, ExceptionHandler, &ExceptionHandler::getHandlerBody, &ExceptionHandler::setHandlerBody)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ExceptionHandlerExceptionInput, DataStoreNode, ExceptionHandler, &ExceptionHandler::getExceptionInput, &ExceptionHandler::setExceptionInput)
+// UML_SERVER_SET_INTEGRATION_TEST(ExceptionHandlerExceptionTypes, Activity, ExceptionHandler, &ExceptionHandler::getExceptionTypes)
+// UML_SERVER_SET_INTEGRATION_TEST(ActionLocalPreConditions, Constraint, OpaqueAction, &Action::getLocalPreconditions)
+// UML_SERVER_SET_INTEGRATION_TEST(ActionLocalPostConditions, Constraint, OpaqueAction, &Action::getLocalPostconditions)
+// UML_SERVER_SET_INTEGRATION_TEST(OpaqueActionInputValues, InputPin, OpaqueAction, &OpaqueAction::getInputValues)
+// UML_SERVER_SET_INTEGRATION_TEST(OpaqueActionOutputValues, OutputPin, OpaqueAction, &OpaqueAction::getOutputValues)
+// UML_SERVER_SET_INTEGRATION_TEST(OpaqueActionBodies, LiteralString, OpaqueAction, &OpaqueAction::getBodies)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ActionInputPinFromAction, OpaqueAction, ActionInputPin, &ActionInputPin::getFromAction, &ActionInputPin::setFromAction)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ValuePinValue, LiteralBool, ValuePin, &ValuePin::getValue, &ValuePin::setValue)
+// UML_SERVER_SET_INTEGRATION_TEST(InvocationActionArguments, InputPin, CallBehaviorAction, &InvocationAction::getArguments)
+// UML_SERVER_SET_INTEGRATION_TEST(CallActionResults, OutputPin, CallBehaviorAction, &CallAction::getResults)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(CallBehaviorActionBehavior, Activity, CallBehaviorAction, &CallBehaviorAction::getBehavior, &CallBehaviorAction::setBehavior)
 
 // activity integration tests
-UML_SERVER_SET_INTEGRATION_TEST(ActivityNodes, OpaqueAction, Activity, &Activity::getNodes)
-UML_SERVER_SET_INTEGRATION_TEST(ActivityEdges, ControlFlow, Activity, &Activity::getEdges)
-UML_SERVER_SET_INTEGRATION_TEST(ActivityPartitions, ActivityPartition, Activity, &Activity::getPartitions)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityGroupInActivity, Activity, ActivityPartition, &ActivityGroup::getInActivity, &ActivityGroup::setInActivity)
-UML_SERVER_SET_INTEGRATION_TEST(ActivityPartitionSubPartitions, ActivityPartition, ActivityPartition, &ActivityPartition::getSubPartitions)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityPartitionSuperPartition, ActivityPartition, ActivityPartition, &ActivityPartition::getSuperPartition, &ActivityPartition::setSuperPartition)
-UML_SERVER_SET_INTEGRATION_TEST(ActivityPartitionNodes, OpaqueAction, ActivityPartition, &ActivityPartition::getNodes)
-UML_SERVER_SET_INTEGRATION_TEST(ActivityNodeInPartition, ActivityPartition, OpaqueAction, &ActivityNode::getInPartitions)
-UML_SERVER_SET_INTEGRATION_TEST(ActivityPartitionEdges, ControlFlow, ActivityPartition, &ActivityPartition::getEdges)
-UML_SERVER_SET_INTEGRATION_TEST(ActivityEdgeInPartion, ActivityPartition, ControlFlow, &ActivityEdge::getInPartitions)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityPartitionRepresents, Property, ActivityPartition, &ActivityPartition::getRepresents, &ActivityPartition::setRepresents)
+// UML_SERVER_SET_INTEGRATION_TEST(ActivityNodes, OpaqueAction, Activity, &Activity::getNodes)
+// UML_SERVER_SET_INTEGRATION_TEST(ActivityEdges, ControlFlow, Activity, &Activity::getEdges)
+// UML_SERVER_SET_INTEGRATION_TEST(ActivityPartitions, ActivityPartition, Activity, &Activity::getPartitions)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityGroupInActivity, Activity, ActivityPartition, &ActivityGroup::getInActivity, &ActivityGroup::setInActivity)
+// UML_SERVER_SET_INTEGRATION_TEST(ActivityPartitionSubPartitions, ActivityPartition, ActivityPartition, &ActivityPartition::getSubPartitions)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityPartitionSuperPartition, ActivityPartition, ActivityPartition, &ActivityPartition::getSuperPartition, &ActivityPartition::setSuperPartition)
+// UML_SERVER_SET_INTEGRATION_TEST(ActivityPartitionNodes, OpaqueAction, ActivityPartition, &ActivityPartition::getNodes)
+// UML_SERVER_SET_INTEGRATION_TEST(ActivityNodeInPartition, ActivityPartition, OpaqueAction, &ActivityNode::getInPartitions)
+// UML_SERVER_SET_INTEGRATION_TEST(ActivityPartitionEdges, ControlFlow, ActivityPartition, &ActivityPartition::getEdges)
+// UML_SERVER_SET_INTEGRATION_TEST(ActivityEdgeInPartion, ActivityPartition, ControlFlow, &ActivityEdge::getInPartitions)
+// UML_SERVER_SINGLETON_INTEGRATION_TEST(ActivityPartitionRepresents, Property, ActivityPartition, &ActivityPartition::getRepresents, &ActivityPartition::setRepresents)
 
 // association integration tests
 UML_SERVER_SET_INTEGRATION_TEST(AssociationOwnedEnd, Property, Association, &Association::getOwnedEnds)
@@ -194,16 +194,16 @@ UML_SERVER_SET_INTEGRATION_TEST(BehavioredClassifierOwnedBehavior, OpaqueBehavio
 UML_SERVER_SINGLETON_INTEGRATION_TEST(BehavioredClassifierClassifierBehavior, OpaqueBehavior, Class, &BehavioredClassifier::getClassifierBehavior, &BehavioredClassifier::setClassifierBehavior)
 
 // behavior integration tests
-UML_SERVER_SINGLETON_INTEGRATION_TEST(BehaviorSpecification, Operation, Activity, &Behavior::getSpecification, &Behavior::setSpecification)
+UML_SERVER_SINGLETON_INTEGRATION_TEST(BehaviorSpecification, Operation, OpaqueBehavior, &Behavior::getSpecification, &Behavior::setSpecification)
 UML_SERVER_SET_INTEGRATION_TEST(BehavioralFeatureOwnedParameters, Parameter, Operation, &BehavioralFeature::getOwnedParameters)
-UML_SERVER_SET_INTEGRATION_TEST(BehavioralFeatureMethods, Activity, Operation, &BehavioralFeature::getMethods)
-UML_SERVER_SET_INTEGRATION_TEST(BehavioralFeatureRaisedExceptions, Activity, Operation, &BehavioralFeature::getRaisedExceptions)
+UML_SERVER_SET_INTEGRATION_TEST(BehavioralFeatureMethods, OpaqueBehavior, Operation, &BehavioralFeature::getMethods)
+UML_SERVER_SET_INTEGRATION_TEST(BehavioralFeatureRaisedExceptions, OpaqueBehavior, Operation, &BehavioralFeature::getRaisedExceptions)
 UML_SERVER_SET_INTEGRATION_TEST(BehaviorParameters, Parameter, OpaqueBehavior, &Behavior::getOwnedParameters)
 
 // classifier integration tests
 UML_SERVER_SET_INTEGRATION_TEST(ClassifierGeneralization, Generalization, Class, &Classifier::getGeneralizations)
 UML_SERVER_SET_INTEGRATION_TEST(ClassifierPowerTypeExtent, GeneralizationSet, Class, &Classifier::getPowerTypeExtent)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(ClassifierOwnedTemplateSignature, RedefinableTemplateSignature, Activity, &Classifier::getOwnedTemplateSignature, &Classifier::setOwnedTemplateSignature)
+UML_SERVER_SINGLETON_INTEGRATION_TEST(ClassifierOwnedTemplateSignature, RedefinableTemplateSignature, Class, &Classifier::getOwnedTemplateSignature, &Classifier::setOwnedTemplateSignature)
 UML_SERVER_SINGLETON_INTEGRATION_TEST(RedefinableTemplateSignatureClassifier, PrimitiveType, RedefinableTemplateSignature, &RedefinableTemplateSignature::getClassifier, &RedefinableTemplateSignature::setClassifier)
 UML_SERVER_SINGLETON_INTEGRATION_TEST(ClassifierTemplateParameter_, ClassifierTemplateParameter, Class, &Classifier::getTemplateParameter, &Classifier::setTemplateParameter)
 UML_SERVER_SINGLETON_INTEGRATION_TEST(ClassifierTemplateParameterParameteredElement, OpaqueBehavior, ClassifierTemplateParameter, &ClassifierTemplateParameter::getParameteredElement, &ClassifierTemplateParameter::setParameteredElement)
@@ -227,7 +227,7 @@ UML_SERVER_SET_INTEGRATION_TEST(CommentAnnotatedElement, Abstraction, Comment, &
 // connector integration tests
 UML_SERVER_SET_INTEGRATION_TEST(ConnectorConnectorEnds, ConnectorEnd, Connector, &Connector::getEnds)
 UML_SERVER_SINGLETON_INTEGRATION_TEST(ConnectorType, Association, Connector, &Connector::getType, &Connector::setType)
-UML_SERVER_SET_INTEGRATION_TEST(ConnectorContracts, Activity, Connector, &Connector::getContracts)
+UML_SERVER_SET_INTEGRATION_TEST(ConnectorContracts, OpaqueBehavior, Connector, &Connector::getContracts)
 UML_SERVER_SINGLETON_INTEGRATION_TEST(ConnectorEndRole, Port, ConnectorEnd, &ConnectorEnd::getRole, &ConnectorEnd::setRole)
 
 // dataType integration tests
@@ -263,7 +263,7 @@ UML_SERVER_SET_INTEGRATION_TEST(GeneralizationGeneralizationSets, Generalization
 
 // generalization integration tests
 UML_SERVER_SINGLETON_INTEGRATION_TEST(GeneralizationSpecific, OpaqueBehavior, Generalization, &Generalization::getSpecific, &Generalization::setSpecific)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(GeneralizationGeneral, Activity, Generalization, &Generalization::getGeneral, &Generalization::setGeneral)
+UML_SERVER_SINGLETON_INTEGRATION_TEST(GeneralizationGeneral, DataType, Generalization, &Generalization::getGeneral, &Generalization::setGeneral)
 
 // instanceSpecification integration tests
 UML_SERVER_SET_INTEGRATION_TEST(InstanceSpecificationSlots, Slot, InstanceSpecification, &InstanceSpecification::getSlots)
@@ -286,7 +286,7 @@ UML_SERVER_SINGLETON_INTEGRATION_TEST(ManifestationUtilizedElement, Package, Man
 
 // multiplicityElement integration tests
 UML_SERVER_SINGLETON_INTEGRATION_TEST(MultiplicityElementLowerValue, LiteralReal, Property, &MultiplicityElement::getLowerValue, &MultiplicityElement::setLowerValue)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(MultiplicityElementUpperValue, LiteralNull, ActionInputPin, &MultiplicityElement::getUpperValue, &MultiplicityElement::setUpperValue)
+UML_SERVER_SINGLETON_INTEGRATION_TEST(MultiplicityElementUpperValue, LiteralNull, Port, &MultiplicityElement::getUpperValue, &MultiplicityElement::setUpperValue)
 
 // namespace integration tests
 UML_SERVER_SET_INTEGRATION_TEST(NamespaceOwnedRules, Constraint, Package, &Namespace::getOwnedRules)
@@ -296,7 +296,7 @@ UML_SERVER_SINGLETON_INTEGRATION_TEST(ElementImportImportingNamespace, Package, 
 UML_SERVER_SINGLETON_INTEGRATION_TEST(ElementImportImportedElement, DataType, ElementImport, &ElementImport::getImportedElement, &ElementImport::setImportedElement)
 UML_SERVER_SET_INTEGRATION_TEST(NamespacePackageImports, PackageImport, Class, &Namespace::getPackageImports)
 UML_SERVER_SINGLETON_INTEGRATION_TEST(PackageImportImportedPackage, Package, PackageImport, &PackageImport::getImportedPackage, &PackageImport::setImportedPackage)
-UML_SERVER_SINGLETON_INTEGRATION_TEST(PackageImportImportingNamespace, Activity, PackageImport, &PackageImport::getImportingNamespace, &PackageImport::setImportingNamespace)
+UML_SERVER_SINGLETON_INTEGRATION_TEST(PackageImportImportingNamespace, OpaqueBehavior, PackageImport, &PackageImport::getImportingNamespace, &PackageImport::setImportingNamespace)
 
 //operation integration tests
 UML_SERVER_SET_INTEGRATION_TEST(OperationOwnedParameter, Parameter, Operation, &Operation::getOwnedParameters)

@@ -40,24 +40,27 @@ std::string ServerPersistencePolicy::loadElementData(ID id) {
     sendEmitter(m_socketD, emitter);
 
     // receive
-    char* buff = (char*)malloc(UML_CLIENT_MSG_SIZE);
-    int bytesReceived = recv(m_socketD, buff, UML_CLIENT_MSG_SIZE, 0);
-    if (bytesReceived <= 0) {
-        throw ManagerStateException();
+    uint64_t msgSize = 0;
+    int bytesReceived = recv(m_socketD, &msgSize, sizeof(uint64_t), 0);
+    if (bytesReceived == -1) {
+        throw ManagerStateException("No data returned from server!");
     }
-    int i = 0;
-    while (bytesReceived >= UML_CLIENT_MSG_SIZE - 1) {
-        if (buff[i * UML_CLIENT_MSG_SIZE + UML_CLIENT_MSG_SIZE - 1] != '\0') {
-            buff = (char*)realloc(buff, 2 * UML_CLIENT_MSG_SIZE + i * UML_CLIENT_MSG_SIZE);
-            bytesReceived = recv(m_socketD, &buff[UML_CLIENT_MSG_SIZE + i * UML_CLIENT_MSG_SIZE], UML_CLIENT_MSG_SIZE, 0);
-        } else {
-            break;
+    msgSize = be64toh(msgSize);
+    char buff[UML_CLIENT_MSG_SIZE];
+    bytesReceived = recv(m_socketD, &buff, UML_CLIENT_MSG_SIZE, 0);
+    if (bytesReceived == -1) {
+        throw ManagerStateException("No data returned from server!");
+    }
+    uint64_t totalBytesReceived = bytesReceived;
+    string ret = buff; // copy data to string
+    while (totalBytesReceived < msgSize) {
+        bytesReceived = recv(m_socketD, &buff, UML_CLIENT_MSG_SIZE, 0);
+        if (bytesReceived == -1) {
+            throw ManagerStateException("No data returned from server!");
         }
-        i++;
+        totalBytesReceived += bytesReceived;
+        ret += buff;
     }
-    
-    string ret(buff);
-    free(buff);
     return ret;
 }
 

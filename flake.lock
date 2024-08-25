@@ -98,11 +98,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1724097621,
-        "narHash": "sha256-zyMLN7Q3XzZLEubJF4+bW3zY+y8Z9TCuq0B7a0av1ls=",
+        "lastModified": 1724605425,
+        "narHash": "sha256-nYu1zxg04USxEF7xkJJFayE4n+PJObv2KQ6f6FT077M=",
         "owner": "nemears",
         "repo": "uml-cpp",
-        "rev": "e1cc2fbc9d00493de2c06708c79e1726c630d743",
+        "rev": "693df3255e89e0e3cb7602cbb22218b1e3e4a89d",
         "type": "github"
       },
       "original": {

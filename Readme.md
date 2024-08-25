@@ -1,0 +1,1 @@
+TCP client server uml-cpp managers using uml-cafe serialization. This is used with uml-kitchen to run and handle a single "Project". Documentation to come

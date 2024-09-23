@@ -28,9 +28,10 @@ TEST_F(UmlServerTests, postAndGetTest) {
 
 TEST_F(UmlServerTests, basicEraseTest) {
     UmlClient client;
-    Class& clazz = *client.create<Class>();
-    ID clazzID = clazz.getID();
-    client.erase(clazz);
+    ClassPtr clazz = client.create<Class>();
+    ID clazzID = clazz->getID();
+    clazz.release();
+    client.erase(*clazz);
     ASSERT_FALSE(client.loaded(clazzID));
 }
 
@@ -57,7 +58,7 @@ TEST_F(UmlServerTests, headTest) {
     child->setName("test");
     root->getPackagedElements().add(*child);
     client.release(*child);
-    client.setRoot(root.ptr());
+    client.setRoot(root);
     // ASSERT_EQ(*root, client.get(""));
     ASSERT_EQ(client.get(""), root);
 }
@@ -67,7 +68,7 @@ TEST_F(UmlServerTests, saveTest) {
     PackagePtr newRoot = client.create<Package>();
     ClassPtr clazz = client.create<Class>();
     newRoot->getPackagedElements().add(*clazz);
-    client.setRoot(newRoot.ptr());
+    client.setRoot(newRoot);
     client.release(*clazz);
     clazz->setName("clzz");
     client.release(*clazz);

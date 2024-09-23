@@ -14,7 +14,7 @@
 #endif
 #include <thread>
 #include <yaml-cpp/yaml.h>
-#include "uml/managers/serialization/uml-cafe/parse.h"
+#include "uml/uml-stable.h"
 #include <chrono>
 #include <ctime>
 #include <iomanip>
@@ -43,6 +43,7 @@ void UmlServer::sendMessage(UmlServer::ClientInfo& info, std::string& data) {
 }
 
 void UmlServer::handleMessage(ID id, std::string buff) {
+    std::lock_guard<std::mutex> handleLock(m_messageHandlerMtx);
     ClientInfo& info = m_clients[id];
     log("server got message from client(" + id.string() + "):\n" + std::string(buff));
 
@@ -73,8 +74,8 @@ void UmlServer::handleMessage(ID id, std::string buff) {
     if (node["DELETE"] || node["delete"]) {
         ID elID = ID::fromString((node["DELETE"] ? node["DELETE"] : node["delete"]).as<std::string>());
         try {
-            Element& elToErase = *get(elID);
-            erase(elToErase);
+            ElementPtr elToErase = get(elID);
+            erase(*elToErase);
             log("erased element " + elID.string());
             std::lock_guard<std::mutex> garbageLck(m_garbageMtx);
             m_releaseQueue.remove(elID);
@@ -83,10 +84,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             log("exception encountered when trying to delete element: " + std::string(e.what()));
         }
     } else if (node["DUMP"] || node["dump"]) {
-        EmitterData data;
-        data.mode = SerializationMode::WHOLE;
-        data.isJSON = false;
-        std::string dump = emit(*getRoot(), data);
+        std::string dump = this->dump(*getRoot());
         sendMessage(info, dump);
         log("dumped server data to client, data: " + dump);
     } else if (node["GET"] || node["get"]) {
@@ -97,11 +95,11 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             sendMessage(info, msg);
             return;
         }
-        if (isValidID(getNode.as<std::string>())) {
+        try {
             elID = ID::fromString(getNode.as<std::string>());
-        } else {
+        } catch(__attribute__((unused)) std::exception& e1) {
             try {
-                std::shared_lock<std::shared_timed_mutex> graphLck(m_graphMtx);
+                // std::shared_lock<std::shared_timed_mutex> graphLck(m_graphMtx);
                 elID = m_urls.at(getNode.as<std::string>());
             } catch (std::exception& e) {
                 log(e.what());
@@ -111,10 +109,8 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             }
         }
         try {
-            Element& el = *get(elID);
-            EmitterData data;
-            data.isJSON = true;
-            std::string msg = emit(el, data);
+            UmlPtr<BaseElement<UmlTypes>> el = abstractGet(elID);
+            std::string msg = this->emitIndividual(*el, *this);
             sendMessage(info, msg);
             log("server got element " +  elID.string() + " for client " + id.string() + ":\n" + msg);
         } catch (std::exception& e) {
@@ -125,9 +121,9 @@ void UmlServer::handleMessage(ID id, std::string buff) {
     } else if (node["POST"] || node["post"]) {
         log("server handling post request from client " + id.string());
         try {
-            ElementType type = elementTypeFromString((node["POST"] ? node["POST"] : node["post"]).as<std::string>());
+            std::size_t type = ManagerTypes<UmlTypes>::getElementTypeByName((node["POST"] ? node["POST"] : node["post"]).as<std::string>());
             ID id = ID::fromString(node["id"].as<std::string>());
-            Element* ret = 0;
+            ElementPtr ret = 0;
             ret = create(type);
             ret->setID(id);
             log("server created new element for client" + id.string());
@@ -147,12 +143,10 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             }
             m_urls[putNode["qualifiedName"].as<std::string>()] = elID;
         }
-        ParserData data;
-        data.manager = this;
         try {
-            ElementPtr el = parseNode(putNode["element"], data);
+            ElementPtr el = parseNode(putNode["element"]);
             if (el) {
-                restoreNode(el);
+                restoreEl(*el);
             }
             if (isRoot) {
                 setRoot(*el);
@@ -400,8 +394,8 @@ void UmlServer::garbageCollector(UmlServer* me) {
         me->m_garbageCv.wait(garbageLck, [me] { return me->m_releaseQueue.size() != me->m_numEls; });
         if (me->m_numEls == me->m_maxEls) {
             ID releasedID = me->m_releaseQueue.back();
-            Element& elToErase = *me->get(releasedID);
-            me->release(elToErase);
+            ElementPtr elToErase = me->get(releasedID);
+            me->release(*elToErase);
             me->m_releaseQueue.pop_back();
         } else {
             me->m_numEls++;
@@ -469,17 +463,17 @@ std::string time_in_HH_MM_SS_MMM()
 
 #endif
 
-std::vector<std::unique_lock<std::mutex>> UmlServer::lockReferences(ManagerNode& node) {
-    std::vector<std::unique_lock<std::mutex>> ret;
-    ret.reserve(node.m_references.size());
-    for (auto& referencePair : node.m_references) {
-        if (!referencePair.second.node) {
-            continue;
-        }
-        ret.push_back(std::unique_lock<std::mutex>(referencePair.second.node->m_mtx));
-    }
-    return ret;
-}
+// std::vector<std::unique_lock<std::mutex>> UmlServer::lockReferences(ManagerNode& node) {
+//     std::vector<std::unique_lock<std::mutex>> ret;
+//     ret.reserve(node.m_references.size());
+//     for (auto& referencePair : node.m_references) {
+//         if (!referencePair.second.node) {
+//             continue;
+//         }
+//         ret.push_back(std::unique_lock<std::mutex>(referencePair.second.node->m_mtx));
+//     }
+//     return ret;
+// }
 
 void UmlServer::log(std::string msg) {
     std::lock_guard<std::mutex> lck(m_logMtx);
@@ -733,8 +727,8 @@ int UmlServer::waitTillShutDown() {
     return 1;
 }
 
-void UmlServer::setRoot(Element* el) {
-    Manager<>::setRoot(el);
+void UmlServer::setRoot(AbstractElementPtr el) {
+    Manager<UmlTypes, UmlCafeJsonSerializationPolicy<UmlTypes>>::setRoot(el);
     if (!el) {
         return;
     }

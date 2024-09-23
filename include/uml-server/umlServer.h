@@ -1,7 +1,7 @@
 #ifndef _UML_UML_SERVER_H_
 #define _UML_UML_SERVER_H_
 
-#include "uml/managers/manager.h"
+#include "uml/managers/umlManager.h"
 #include <atomic>
 #include <iostream>
 #include <mutex>
@@ -25,7 +25,7 @@ namespace std {
 
 namespace UML {
 
-    class UmlServer : public Manager<> {
+    class UmlServer : public Manager<UmlTypes, UmlCafeJsonSerializationPolicy<UmlTypes>> {
 
         private:
             struct ClientInfo {
@@ -79,10 +79,12 @@ namespace UML {
             std::mutex m_zombieMtx;
             std::condition_variable m_zombieCv;
 
+            std::mutex m_messageHandlerMtx;
+
             // helper methods
         protected:
             void closeClientConnections(ClientInfo& client);
-            std::vector<std::unique_lock<std::mutex>> lockReferences(ManagerNode& node);
+            // std::vector<std::unique_lock<std::mutex>> lockReferences(ManagerNode& node);
         public:
             UmlServer();
             UmlServer(int port);
@@ -100,7 +102,7 @@ namespace UML {
             int getNumElsInMemory();
             int waitTillShutDown(int ms);
             int waitTillShutDown();
-            void setRoot(Element* el) override;
+            void setRoot(AbstractElementPtr el) override;
             void setRoot(Element& el);
     };
 }

@@ -10,16 +10,16 @@ uml_server_lib = library('uml-server-protocol',
 )
 executable('uml-server', 
     'src/uml-server/main.cpp', 
-    link_with : uml_server_lib, 
+    link_with : uml_server_lib,
     include_directories : include_dir,
-    dependencies: uml_cpp)
+    dependencies: [uml_cpp, yaml_cpp])
 if (get_option('serverTests'))
     gtest = dependency('gtest', main : true, required : false)
     uml_server_tests = executable('uml-server-tests', 
         'src/test/umlServerTest.cpp', 
         link_with : uml_server_lib, 
         include_directories : include_dir, 
-        dependencies : [gtest, uml_cpp]
+        dependencies : [gtest, uml_cpp, yaml_cpp]
     )
     test('uml-server-tests', uml_server_tests)
 endif

@@ -5,8 +5,7 @@
 #include <netinet/tcp.h>
 #include <unistd.h>
 #include "uml-server/serverPersistencePolicy.h"
-#include "uml/managers/abstractManager.h"
-#include "uml/managers/serialization/uml-cafe/openUmlSerializationPolicy.h"
+#include "uml/uml-stable.h"
 #include "yaml-cpp/yaml.h"
 
 using namespace std;

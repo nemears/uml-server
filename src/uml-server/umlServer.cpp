@@ -84,7 +84,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             log("exception encountered when trying to delete element: " + std::string(e.what()));
         }
     } else if (node["DUMP"] || node["dump"]) {
-        std::string dump = this->dump(*getRoot());
+        std::string dump = this->dumpYaml();
         sendMessage(info, dump);
         log("dumped server data to client, data: " + dump);
     } else if (node["GET"] || node["get"]) {

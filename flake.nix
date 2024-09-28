@@ -50,6 +50,7 @@
 
                 packages.uml-server = mkUmlServer {
                   src = ./.;
+                  umlcpp = uml-cpp.outputs.packages.${system}.uml-cpp_0_4_2;
                 };
                 packages.uml-server_0_1_1 = mkUmlServer {
                   src = builtins.fetchGit {
@@ -65,7 +66,7 @@
                     type = "app";
                     program = "${self.packages.${system}.uml-server}/bin/uml-server";
                 };
-		apps.uml-server_0_1_1 = {
+                apps.uml-server_0_1_1 = {
                   type = "app";
                   program = "${self.packages.${system}.uml-server_0_1_1}/bin/uml-server";
                 };

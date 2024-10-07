@@ -52,6 +52,31 @@
                   src = ./.;
                   umlcpp = uml-cpp.outputs.packages.${system}.uml-cpp_0_4_2;
                 };
+                packages.uml-server_0_1_2 = pkgs.stdenvNoCC.mkDerivation {
+                  src = pkgs.fetchurl {
+                    url = "https://api.github.com/repos/nemears/uml-server/releases/assets/197462198";
+                    hash = "sha256-SGDzHoay5ycVc5FuVIDRiJVXlNyNmB9x9KSRaWAjyDM=";
+                    curlOptsList = [
+                      "-L"
+                      "--verbose"
+                      "-HAccept: application/octet-stream"
+                      "-HAuthorization: Bearer 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"
+                      "-HX-GitHub-Api-Version: 2022-11-28"
+                    ];
+                    # postFetch = ''
+                    #   tar xvzf $downloadedFile 
+                    #   ls -la
+                    #   rm $out
+                    #   cp -r uml-server-v0.1.2 $out
+                    # '';
+                  };
+                  name = "uml-server";
+                  unpackPhase = ''
+                    tar xvzf $src
+                    mkdir $out
+                    cp -r uml-server-v0.1.2 $out
+                  '';
+                };
                 packages.uml-server_0_1_1 = mkUmlServer {
                   src = builtins.fetchGit {
                     url = "ssh://git@github.com/nemears/uml-server.git";

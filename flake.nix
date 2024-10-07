@@ -74,7 +74,7 @@
                   unpackPhase = ''
                     tar xvzf $src
                     mkdir $out
-                    cp -r uml-server-v0.1.2 $out
+                    cp -r uml-server-v0.1.2/. $out
                   '';
                 };
                 packages.uml-server_0_1_1 = mkUmlServer {

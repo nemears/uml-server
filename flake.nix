@@ -54,8 +54,8 @@
                 };
                 packages.uml-server_0_1_2 = pkgs.stdenvNoCC.mkDerivation {
                   src = pkgs.fetchurl {
-                    url = "https://api.github.com/repos/nemears/uml-server/releases/assets/197462198";
-                    hash = "sha256-SGDzHoay5ycVc5FuVIDRiJVXlNyNmB9x9KSRaWAjyDM=";
+                    url = "https://api.github.com/repos/nemears/uml-server/releases/assets/197656302";
+                    hash = "sha256-g4wDhRI7LR+fbgcpEyWWwhlj6NMESvXwIYpyJ0Ahzb4=";
                     curlOptsList = [
                       "-L"
                       "--verbose"
@@ -74,8 +74,14 @@
                   unpackPhase = ''
                     tar xvzf $src
                     mkdir $out
-                    cp -r uml-server-v0.1.2/. $out
+                    cp -rp uml-server-release/. $out
                   '';
+		  umlcpp = uml-cpp.outputs.packages.${system}.uml-cpp_0_4_2;
+		  yamlcpp = pkgs.yaml-cpp;
+	   	  buildPhase = ''
+		    ln -sf $umlcpp/lib/libuml.so $out/bin/libuml.so
+		    ln -sf $yamlcpp/lib/libyaml-cpp.so $out/bin/libyaml-cpp.so.0.8
+		  '';
                 };
                 packages.uml-server_0_1_1 = mkUmlServer {
                   src = builtins.fetchGit {

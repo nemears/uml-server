@@ -121,11 +121,41 @@ void UmlServer::handleMessage(ID id, std::string buff) {
     } else if (node["POST"] || node["post"]) {
         log("server handling post request from client " + id.string());
         try {
-            std::size_t type = ManagerTypes<UmlTypes>::getElementTypeByName((node["POST"] ? node["POST"] : node["post"]).as<std::string>());
-            ID id = ID::fromString(node["id"].as<std::string>());
-            ElementPtr ret = 0;
-            ret = create(type);
-            ret->setID(id);
+            auto postNode = node["POST"] ? node["POST"] : node["post"];
+            if (postNode.IsScalar()) {
+                std::size_t type = ManagerTypes<UmlTypes>::getElementTypeByName((node["POST"] ? node["POST"] : node["post"]).as<std::string>());
+                ID id = ID::fromString(node["id"].as<std::string>());
+                ElementPtr ret = 0;
+                ret = create(type);
+                ret->setID(id);
+            } else if (postNode.IsMap()) {
+                if (postNode["type"]) {
+                    auto type = ManagerTypes<UmlTypes>::getElementTypeByName(postNode["type"].as<std::string>());
+                    ElementPtr ret = create(type);
+                    if (postNode["id"]) {
+                        ret->setID(ID::fromString(postNode["id"].as<std::string>()));
+                        log("set id of posted element to " + ret.id().string());
+                    }
+                    if (postNode["url"]) {
+                        // TODO
+                        log("TODO url specified for POST request!");
+                    }
+                    if (postNode["name"] && ret->is<NamedElement>()) {
+                        NamedElementPtr namedPtr = ret;
+                        namedPtr->setName(postNode["name"].as<std::string>());
+                    }
+                    if (postNode["owner"]) {
+                        if (postNode["set"]) {
+                            auto owner = get(ID::fromString(postNode["owner"].as<std::string>()));
+                            this->findSetAndAdd(node["set"].as<std::string>(), *owner, *ret);
+                        } else {
+                            // TODO find appropriate set by type
+                        }
+                    }
+                } else {
+                    throw ManagerStateException("Must specify type when posting a uml element");
+                }
+            }
             log("server created new element for client" + id.string());
             std::lock_guard<std::mutex> garbageLck(m_garbageMtx);
             m_releaseQueue.push_front(id);

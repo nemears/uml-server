@@ -82,6 +82,44 @@ namespace UML {
             std::mutex m_messageHandlerMtx;
 
             // helper methods
+            template <class OwnerType, class OwneeType, std::size_t I = 0>
+            bool findSetAndAddHelper2(std::string setName, OwnerType& owner, OwneeType& ownee) {
+                if constexpr (I + 1 < std::tuple_size<typename OwnerType::Info::BaseList>{}) {
+                    return findSetAndAddHelper2<std::tuple_element_t<I + 1, typename OwnerType::Info::BaseList>, OwneeType, 0>(setName, owner, ownee);
+                } else {
+                    for (auto set : OwnerType::Info::sets(owner)) {
+                        if (set.first == setName) {
+                            addToSet(*set.second, ownee);
+                            return true;
+                        }
+                    }    
+                }
+                return false;
+            }
+
+            template <std::size_t I = 0, class Tuple, class OwnerType>
+            void findSetAndAddHelper1(std::string setName, OwnerType& owner, BaseElement<Tuple>& el) {
+                if (I == el.getElementType()) {
+                    findSetAndAddHelper2(setName, owner, el. template as<std::tuple_element_t<I, Tuple>>());
+                }
+                if constexpr (I + 1 < std::tuple_size<Tuple>{}) {
+                    findSetAndAddHelper1<I + 1, Tuple, OwnerType>(setName, owner, el);
+                } else {
+                    throw ManagerStateException("could not downcast element!");
+                }
+            }
+
+            template <std::size_t I = 0, class Tuple>
+            void findSetAndAdd(std::string setName, BaseElement<Tuple>& el, BaseElement<Tuple>& ownee) {
+                if (I == el.getElementType()) {
+                    findSetAndAddHelper1(setName, el. template as<std::tuple_element_t<I, Tuple>>(), ownee);
+                }
+                if constexpr (I + 1 < std::tuple_size<Tuple>{}) {
+                    findSetAndAdd<I + 1, Tuple>(setName, el, ownee);
+                } else {
+                    throw ManagerStateException("could not downcast element!");
+                }
+            } 
         protected:
             void closeClientConnections(ClientInfo& client);
             // std::vector<std::unique_lock<std::mutex>> lockReferences(ManagerNode& node);

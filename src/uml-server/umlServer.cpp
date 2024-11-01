@@ -137,8 +137,13 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                         log("set id of posted element to " + ret.id().string());
                     }
                     if (postNode["url"]) {
-                        // TODO
-                        log("TODO url specified for POST request!");
+                        auto urlVal = postNode["url"].as<std::string>();
+                        if (ID::isValid(urlVal)) {
+                            ret->setID(ID::fromString(urlVal));
+                        } else {
+                            // break up url into path and find owner
+                            log("TODO url specified for POST request!");
+                        }                        
                     }
                     if (postNode["name"] && ret->is<NamedElement>()) {
                         NamedElementPtr namedPtr = ret;
@@ -150,6 +155,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                             this->findSetAndAdd(node["set"].as<std::string>(), *owner, *ret);
                         } else {
                             // TODO find appropriate set by type
+                            log("TODO! owner specified but not the set, TODO automatically infer best set for owner");
                         }
                     }
                 } else {
@@ -165,23 +171,23 @@ void UmlServer::handleMessage(ID id, std::string buff) {
         }
     } else if (node["PUT"] || node["put"]) {
         YAML::Node putNode = (node["PUT"] ? node["PUT"] : node["put"]);
-        ID elID = ID::fromString(putNode["id"].as<std::string>());
-        bool isRoot = false;
-        if (putNode["qualifiedName"]) {
-            if (putNode["qualifiedName"].as<std::string>().compare("") == 0) {
-                isRoot = true;
-            }
-            m_urls[putNode["qualifiedName"].as<std::string>()] = elID;
-        }
         try {
             ElementPtr el = parseNode(putNode["element"]);
             if (el) {
-                restoreEl(*el);
+                // run add policies we skipped over
+                restoreElAndOpposites(el);
+            }
+            bool isRoot = false;
+            if (putNode["qualifiedName"]) {
+                if (putNode["qualifiedName"].as<std::string>().compare("") == 0) {
+                    isRoot = true;
+                }
+                m_urls[putNode["qualifiedName"].as<std::string>()] = el.id();
             }
             if (isRoot) {
                 setRoot(*el);
             }
-            log("server put element " + elID.string() + " successfully for client " + id.string());
+            log("server put element " + el.id().string() + " successfully for client " + id.string());
         } catch (std::exception& e) {
             log("Error parsing PUT request: " + std::string(e.what()));
         }

@@ -40,7 +40,8 @@
                     # dev dependencies
                     yaml-cpp
                     gtest
-                    uml-cpp.outputs.packages.${system}.uml-cpp_0_4_2
+                    # uml-cpp.outputs.packages.${system}.uml-cpp_0_4_2
+                    uml-cpp.outputs.packages.${system}.default
 
                     # debug dependencies
                     gdb

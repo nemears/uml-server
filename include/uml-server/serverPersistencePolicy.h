@@ -1,5 +1,5 @@
 #pragma once
-#include "uml/id.h"
+#include "egm/id.h"
 
 #define UML_PORT 8652
 #define UML_CLIENT_MSG_SIZE 200
@@ -14,17 +14,17 @@ namespace UML {
             std::string m_address;
             int m_port = UML_PORT;
             int m_socketD = 0;
-            const ID clientID = ID::randomID();
+            const EGM::ID clientID = EGM::ID::randomID();
 
             void sendEmitter(int socket, YAML::Emitter& emitter);
-            std::string loadElementData(ID id);
-            void saveElementData(std::string data, ID id);
+            std::string loadElementData(EGM::ID id);
+            void saveElementData(std::string data, EGM::ID id);
             std::string getProjectData(std::string path);
             std::string getProjectData();
             void saveProjectData(std::string data, std::string path);
             void saveProjectData(std::string data);
-            void eraseEl(ID id);
-            void reindex(ID oldID, ID newID);
+            void eraseEl(EGM::ID id);
+            void reindex(EGM::ID oldID, EGM::ID newID);
             ServerPersistencePolicy();
         public:
             void mount(std::string mountPath);

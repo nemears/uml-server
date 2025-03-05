@@ -5,9 +5,10 @@
         flake-utils.url = "github:numtide/flake-utils";
         uml-cpp.url = "github:nemears/uml-cpp";
         nixpkgs.follows = "uml-cpp/nixpkgs";
+        egm.follows = "uml-cpp/egm";
     };
 
-    outputs = { self, nixpkgs, flake-utils, uml-cpp }:
+    outputs = { self, nixpkgs, flake-utils, uml-cpp, egm }:
     flake-utils.lib.eachDefaultSystem
         (system:
             let 
@@ -42,6 +43,7 @@
                     gtest
                     # uml-cpp.outputs.packages.${system}.uml-cpp_0_4_2
                     uml-cpp.outputs.packages.${system}.default
+                    egm.outputs.packages.${system}.default
 
                     # debug dependencies
                     gdb

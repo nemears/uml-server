@@ -1,16 +1,16 @@
 #pragma once
 
-#include "uml/managers/umlManager.h"
-#include "uml/managers/serialization/uml-cafe/umlCafeSerializationPolicy.h"
+#include "uml/uml-stable.h"
 #include "serverPersistencePolicy.h"
 
 namespace UML {
-    class UmlClient : public Manager<UmlTypes, UmlCafeJsonSerializationPolicy<UmlTypes>, ServerPersistencePolicy> {
+    class UmlClient : public EGM::Manager<UmlTypes, EGM::SerializedStoragePolicy<EGM::JsonSerializationPolicy<UmlTypes>, ServerPersistencePolicy>> {
+        using BaseManager = EGM::Manager<UmlTypes, EGM::SerializedStoragePolicy<EGM::JsonSerializationPolicy<UmlTypes>, ServerPersistencePolicy>>; 
         public:
-            ElementPtr get(std::string qualifiedName);
-            ElementPtr get(ID id) {
-                return Manager<UmlTypes, UmlCafeJsonSerializationPolicy<UmlTypes>, ServerPersistencePolicy>::get(id);
+            BaseManager::Pointer<Element> get(std::string qualifiedName);
+            BaseManager::Pointer<Element> get(EGM::ID id) {
+                return BaseManager::get(id);
             }
-            void setRoot(AbstractElementPtr root) override;
+            void setRoot(EGM::AbstractElementPtr root) override;
     };
 }

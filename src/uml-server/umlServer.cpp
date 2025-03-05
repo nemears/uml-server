@@ -26,6 +26,10 @@ typedef size_t ssize_t;
 #endif
 
 using namespace UML;
+using namespace EGM;
+
+using ElementPtr = UmlServer::Pointer<Element>;
+using NamedElementPtr = UmlServer::Pointer<NamedElement>;
 
 void UmlServer::sendMessage(UmlServer::ClientInfo& info, std::string& data) {
     uint64_t dataSize = data.size() + 1;
@@ -109,8 +113,8 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             }
         }
         try {
-            UmlPtr<BaseElement<UmlTypes>> el = abstractGet(elID);
-            std::string msg = this->emitIndividual(*el, *this);
+            ElementPtr el = abstractGet(elID);
+            std::string msg = this->emitIndividual(*el);
             sendMessage(info, msg);
             log("server got element " +  elID.string() + " for client " + id.string() + ":\n" + msg);
         } catch (std::exception& e) {
@@ -123,14 +127,14 @@ void UmlServer::handleMessage(ID id, std::string buff) {
         try {
             auto postNode = node["POST"] ? node["POST"] : node["post"];
             if (postNode.IsScalar()) {
-                std::size_t type = ManagerTypes<UmlTypes>::getElementTypeByName((node["POST"] ? node["POST"] : node["post"]).as<std::string>());
+                std::size_t type = names_to_element_type.at((node["POST"] ? node["POST"] : node["post"]).as<std::string>());
                 ID id = ID::fromString(node["id"].as<std::string>());
                 ElementPtr ret = 0;
                 ret = create(type);
                 ret->setID(id);
             } else if (postNode.IsMap()) {
                 if (postNode["type"]) {
-                    auto type = ManagerTypes<UmlTypes>::getElementTypeByName(postNode["type"].as<std::string>());
+                    auto type = names_to_element_type.at(postNode["type"].as<std::string>());
                     ElementPtr ret = create(type);
                     if (postNode["id"]) {
                         ret->setID(ID::fromString(postNode["id"].as<std::string>()));
@@ -152,7 +156,12 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                     if (postNode["owner"]) {
                         if (postNode["set"]) {
                             auto owner = get(ID::fromString(postNode["owner"].as<std::string>()));
-                            this->findSetAndAdd(node["set"].as<std::string>(), *owner, *ret);
+                            std::string setName = postNode["set"].as<std::string>();
+                            this->m_types.at(owner->getElementType())->forEachSet(*owner, [this, setName, ret](std::string name , AbstractSet& set) {
+                                if (name == setName) {
+                                    this->addToSet(set, *ret);
+                                }
+                            });
                         } else {
                             // TODO find appropriate set by type
                             log("TODO! owner specified but not the set, TODO automatically infer best set for owner");
@@ -524,6 +533,7 @@ void UmlServer::log(std::string msg) {
 }
 
 UmlServer::UmlServer(int port, bool deferStart) {
+    fill_names_to_element_type<UmlTypes>::fill(*this);    
     m_port = port;
     if (!deferStart) {
         start();
@@ -764,13 +774,13 @@ int UmlServer::waitTillShutDown() {
 }
 
 void UmlServer::setRoot(AbstractElementPtr el) {
-    Manager<UmlTypes, UmlCafeJsonSerializationPolicy<UmlTypes>>::setRoot(el);
+    BaseManager::setRoot(el);
     if (!el) {
         return;
     }
     m_urls[""] = el->getID();
 }
 
-void UmlServer::setRoot(Element& el) {
+void UmlServer::setRoot(UmlServer::Implementation<Element>& el) {
     setRoot(&el);
 }

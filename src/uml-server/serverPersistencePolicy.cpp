@@ -9,6 +9,7 @@
 #include "yaml-cpp/yaml.h"
 
 using namespace std;
+using namespace EGM;
 
 namespace UML {
 
@@ -22,7 +23,7 @@ void ServerPersistencePolicy::sendEmitter(int socket, YAML::Emitter& emitter) {
     strcpy(packet + sizeof(uint32_t), emitter.c_str());
     while ((bytesSent = send(socket, packet + totalBytesSent, packetSize - totalBytesSent, 0)) < packetSize - totalBytesSent) {
         if (bytesSent == -1) {
-            throw UML::ManagerStateException("could not send packet to server: " + string(strerror(errno)));
+            throw ManagerStateException("could not send packet to server: " + string(strerror(errno)));
         } else {
             totalBytesSent += bytesSent;
         }

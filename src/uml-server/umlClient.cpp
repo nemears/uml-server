@@ -6,10 +6,11 @@
 #include <sys/types.h>
 
 using namespace std;
+using namespace EGM;
 
 namespace UML {
 
-ElementPtr UmlClient::get(std::string qualifiedName) {
+UmlClient::Pointer<Element> UmlClient::get(std::string qualifiedName) {
     // TODO check if one is in memory?
     
     // request
@@ -40,7 +41,7 @@ ElementPtr UmlClient::get(std::string qualifiedName) {
     free(buff);
 
     // parse
-    ElementPtr ret = UmlCafeJsonSerializationPolicy<UmlTypes>::parseIndividual(data, *this);
+    UmlClient::Pointer<Element> ret = JsonSerializationPolicy<UmlTypes>::parseIndividual(data);
     
     // Todo run restoration
 
@@ -49,7 +50,7 @@ ElementPtr UmlClient::get(std::string qualifiedName) {
 }
 
 void UmlClient::setRoot(AbstractElementPtr root) {
-    Manager<UmlTypes, UmlCafeJsonSerializationPolicy<UmlTypes>, ServerPersistencePolicy>::setRoot(root);
+    BaseManager::setRoot(root);
     if (!root) {
         throw new ManagerStateException("TODO set root to null on server");
     }
@@ -57,7 +58,7 @@ void UmlClient::setRoot(AbstractElementPtr root) {
     emitter << YAML::DoubleQuoted << YAML::Flow << YAML::BeginMap << 
         YAML::Key << "PUT" << YAML::Value << YAML::BeginMap << YAML::Key << 
         "id" << YAML::Value << root->getID().string() << YAML::Key << "qualifiedName" << YAML::Value << "" << 
-        YAML::Key << "element" << YAML::Value << YAML::Load(emitIndividual(dynamic_cast<BaseElement<UmlTypes>&>(*root), *this)) << YAML::EndMap << YAML::EndMap;
+        YAML::Key << "element" << YAML::Value << YAML::Load(emitIndividual(dynamic_cast<UmlClient::BaseElement&>(*root))) << YAML::EndMap << YAML::EndMap;
     sendEmitter(m_socketD, emitter);
 }
 

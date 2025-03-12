@@ -15,6 +15,7 @@
 #include <thread>
 #include <yaml-cpp/yaml.h>
 #include "uml/uml-stable.h"
+#include "uml-server/generate/generate.h"
 #include <chrono>
 #include <ctime>
 #include <iomanip>
@@ -110,7 +111,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
         }
         try {
             UmlPtr<BaseElement<UmlTypes>> el = abstractGet(elID);
-            std::string msg = this->emitIndividual(*el, *this);
+            std::string msg = this->emitIndividual(*el);
             sendMessage(info, msg);
             log("server got element " +  elID.string() + " for client " + id.string() + ":\n" + msg);
         } catch (std::exception& e) {
@@ -123,14 +124,14 @@ void UmlServer::handleMessage(ID id, std::string buff) {
         try {
             auto postNode = node["POST"] ? node["POST"] : node["post"];
             if (postNode.IsScalar()) {
-                std::size_t type = ManagerTypes<UmlTypes>::getElementTypeByName((node["POST"] ? node["POST"] : node["post"]).as<std::string>());
+                std::size_t type = m_typeNames.at((node["POST"] ? node["POST"] : node["post"]).as<std::string>());
                 ID id = ID::fromString(node["id"].as<std::string>());
                 ElementPtr ret = 0;
                 ret = create(type);
                 ret->setID(id);
             } else if (postNode.IsMap()) {
                 if (postNode["type"]) {
-                    auto type = ManagerTypes<UmlTypes>::getElementTypeByName(postNode["type"].as<std::string>());
+                    auto type = m_typeNames.at(postNode["type"].as<std::string>());
                     ElementPtr ret = create(type);
                     if (postNode["id"]) {
                         ret->setID(ID::fromString(postNode["id"].as<std::string>()));
@@ -204,6 +205,9 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             log("ERROR saving element, error: " + std::string(e.what()));
         }
         log("saved element to " + path);
+    } else if (node["manager"]) {
+        PackagePtr elToGenerate = get(ID::fromString(node["manager"].as<std::string>()));
+        m_managers.push_back(generate(elToGenerate));
     } else {
         log("ERROR receiving message from client, invalid format!\nMessage:\n" + buff);
         std::string msg = std::string("{ERROR: ") + std::string("ERROR receiving message from client, invalid format!\nMessage:\n" + buff) + std::string("}");
@@ -524,6 +528,7 @@ void UmlServer::log(std::string msg) {
 }
 
 UmlServer::UmlServer(int port, bool deferStart) {
+    populateTypes();
     m_port = port;
     if (!deferStart) {
         start();
@@ -531,15 +536,15 @@ UmlServer::UmlServer(int port, bool deferStart) {
 }
 
 UmlServer::UmlServer(int port) : UmlServer(port, false) {
-
+    populateTypes();
 }
 
 UmlServer::UmlServer(bool deferStart) : UmlServer(UML_PORT, deferStart) {
-
+    populateTypes();
 }
 
 UmlServer::UmlServer() : UmlServer(UML_PORT, false) {
-    
+    populateTypes();
 }
 
 UmlServer::~UmlServer() {
@@ -764,7 +769,7 @@ int UmlServer::waitTillShutDown() {
 }
 
 void UmlServer::setRoot(AbstractElementPtr el) {
-    Manager<UmlTypes, UmlCafeJsonSerializationPolicy<UmlTypes>>::setRoot(el);
+    Manager<UmlTypes, SerializedStoragePolicy<UmlCafeJsonSerializationPolicy<UmlTypes>, FilePersistencePolicy>>::setRoot(el);
     if (!el) {
         return;
     }

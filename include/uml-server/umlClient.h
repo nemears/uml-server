@@ -5,11 +5,11 @@
 #include "serverPersistencePolicy.h"
 
 namespace UML {
-    class UmlClient : public Manager<UmlTypes, UmlCafeJsonSerializationPolicy<UmlTypes>, ServerPersistencePolicy> {
+    class UmlClient : public Manager<UmlTypes, SerializedStoragePolicy<UmlCafeJsonSerializationPolicy<UmlTypes>, ServerPersistencePolicy>> {
         public:
             ElementPtr get(std::string qualifiedName);
             ElementPtr get(ID id) {
-                return Manager<UmlTypes, UmlCafeJsonSerializationPolicy<UmlTypes>, ServerPersistencePolicy>::get(id);
+                return Manager<UmlTypes, SerializedStoragePolicy<UmlCafeJsonSerializationPolicy<UmlTypes>, ServerPersistencePolicy>>::get(id);
             }
             void setRoot(AbstractElementPtr root) override;
     };

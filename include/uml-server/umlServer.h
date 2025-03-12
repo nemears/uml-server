@@ -1,7 +1,8 @@
 #ifndef _UML_UML_SERVER_H_
 #define _UML_UML_SERVER_H_
 
-#include "uml/managers/umlManager.h"
+// #include "uml/managers/umlManager.h"
+#include "uml/uml-stable.h"
 #include <atomic>
 #include <iostream>
 #include <mutex>
@@ -25,7 +26,7 @@ namespace std {
 
 namespace UML {
 
-    class UmlServer : public Manager<UmlTypes, UmlCafeJsonSerializationPolicy<UmlTypes>> {
+    class UmlServer : public Manager<UmlTypes, SerializedStoragePolicy<UmlCafeJsonSerializationPolicy<UmlTypes>, FilePersistencePolicy>> {
 
         private:
             struct ClientInfo {
@@ -53,6 +54,8 @@ namespace UML {
             std::list<ID> m_releaseQueue;
             long unsigned int m_numEls = 0;
             long unsigned int m_maxEls = UML_SERVER_NUM_ELS;
+            std::list<std::unique_ptr<AbstractManager>> m_managers;
+            std::unordered_map<std::string, std::size_t> m_typeNames;
 
             // threading
             static void acceptNewClients(UmlServer* me);
@@ -119,10 +122,21 @@ namespace UML {
                 } else {
                     throw ManagerStateException("could not downcast element!");
                 }
-            } 
+            }
+
+            template <std::size_t I = 0>
+            void populateTypes() {
+                if constexpr (std::tuple_size<UmlTypes>{} > I) {
+                    using CurrentType = std::tuple_element_t<I, UmlTypes>;
+                    if constexpr (!CurrentType::Info::abstract) {
+                        UmlPtr<CurrentType> typeInstantiated = this->template create<CurrentType>();
+                        m_typeNames.emplace(CurrentType::Info::name(*typeInstantiated), I);
+                        populateTypes<I + 1>();
+                    }
+                }
+            }
         protected:
             void closeClientConnections(ClientInfo& client);
-            // std::vector<std::unique_lock<std::mutex>> lockReferences(ManagerNode& node);
         public:
             UmlServer();
             UmlServer(int port);

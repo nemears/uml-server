@@ -20,6 +20,7 @@
 #include <iomanip>
 #include <errno.h>
 #include <string.h>
+#include "uml-server/metaManager.h"
 
 #ifdef WIN32
 typedef size_t ssize_t;
@@ -91,6 +92,18 @@ void UmlServer::handleMessage(ID id, std::string buff) {
         std::string dump = this->dumpYaml();
         sendMessage(info, dump);
         log("dumped server data to client, data: " + dump);
+    } else if (node["generate"]) {
+        if (!node["generate"].IsScalar()) {
+            std::string msg = "{\"error\":\"invalid generate request, must be a scalar of id to generate\"}";
+            sendMessage(info, msg);
+        } else {
+            ID generation_root_id = ID::fromString(node["generate"].as<std::string>());
+            AbstractMetaManager& generated_manager = ActiveMetaManagers::generate(get(generation_root_id)->as<Package>());
+            std::ostringstream oss;
+            oss << "{\"manager\":\"" << generated_manager.getIndex() << "\"}";
+            std::string msg = oss.str();
+            sendMessage(info, msg);
+        }
     } else if (node["GET"] || node["get"]) {
         ID elID;
         YAML::Node getNode = (node["GET"] ? node["GET"] : node["get"]);

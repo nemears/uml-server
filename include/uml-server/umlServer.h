@@ -1,6 +1,7 @@
 #pragma once
 
 #include "uml/uml-stable.h"
+#include "metaManager.h"
 #include <atomic>
 #include <iostream>
 #include <mutex>
@@ -100,6 +101,8 @@ namespace UML {
             struct fill_names_to_element_type<EGM::TemplateTypeList<>, Dummy> {
                 static void fill(UmlServer&) {}
             };
+
+            std::unordered_map<EGM::ID, MetaManager> m_meta_managers;
 
         protected:
             void closeClientConnections(ClientInfo& client);

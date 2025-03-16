@@ -20,7 +20,6 @@
 #include <iomanip>
 #include <errno.h>
 #include <string.h>
-#include "uml-server/metaManager.h"
 
 #ifdef WIN32
 typedef size_t ssize_t;
@@ -98,9 +97,10 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             sendMessage(info, msg);
         } else {
             ID generation_root_id = ID::fromString(node["generate"].as<std::string>());
-            AbstractMetaManager& generated_manager = ActiveMetaManagers::generate(get(generation_root_id)->as<Package>());
+            ID manager_id = ID::randomID();
+            m_meta_managers.emplace(manager_id, get(generation_root_id)->as<Package>());
             std::ostringstream oss;
-            oss << "{\"manager\":\"" << generated_manager.getIndex() << "\"}";
+            oss << "{\"manager\":\"" << manager_id.string() << "\"}";
             std::string msg = oss.str();
             sendMessage(info, msg);
         }
@@ -110,30 +110,30 @@ void UmlServer::handleMessage(ID id, std::string buff) {
         if (!getNode.IsScalar()) {
             std::string msg = "ERROR";
             sendMessage(info, msg);
-            return;
-        }
-        try {
-            elID = ID::fromString(getNode.as<std::string>());
-        } catch(__attribute__((unused)) std::exception& e1) {
+        } else {
             try {
-                // std::shared_lock<std::shared_timed_mutex> graphLck(m_graphMtx);
-                elID = m_urls.at(getNode.as<std::string>());
+                elID = ID::fromString(getNode.as<std::string>());
+            } catch(__attribute__((unused)) std::exception& e1) {
+                try {
+                    // std::shared_lock<std::shared_timed_mutex> graphLck(m_graphMtx);
+                    elID = m_urls.at(getNode.as<std::string>());
+                } catch (std::exception& e) {
+                    log(e.what());
+                    std::string msg = std::string("{\"ERROR\":\"") + std::string(e.what()) + std::string("\"}");
+                    sendMessage(info, msg);
+                    return;
+                }
+            }
+            try {
+                ElementPtr el = abstractGet(elID);
+                std::string msg = this->emitIndividual(*el);
+                sendMessage(info, msg);
+                log("server got element " +  elID.string() + " for client " + id.string() + ":\n" + msg);
             } catch (std::exception& e) {
                 log(e.what());
                 std::string msg = std::string("{\"ERROR\":\"") + std::string(e.what()) + std::string("\"}");
                 sendMessage(info, msg);
-                return;
             }
-        }
-        try {
-            ElementPtr el = abstractGet(elID);
-            std::string msg = this->emitIndividual(*el);
-            sendMessage(info, msg);
-            log("server got element " +  elID.string() + " for client " + id.string() + ":\n" + msg);
-        } catch (std::exception& e) {
-            log(e.what());
-            std::string msg = std::string("{\"ERROR\":\"") + std::string(e.what()) + std::string("\"}");
-            sendMessage(info, msg);
         }
     } else if (node["POST"] || node["post"]) {
         log("server handling post request from client " + id.string());

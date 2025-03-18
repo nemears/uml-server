@@ -16,7 +16,7 @@
               mkUmlServer = { src, umlcpp ? uml-cpp.outputs.packages.${system}.default } : pkgs.stdenv.mkDerivation {
                     name = "uml-server";
                     inherit src umlcpp;
-                    buildInputs = with pkgs; [meson pkg-config coreutils yaml-cpp umlcpp ninja];
+                    buildInputs = with pkgs; [meson pkg-config coreutils yaml-cpp umlcpp egm.outputs.packages.${system}.default ninja];
                     postConfigure = ''
                     meson configure -DserverTests=false
                     '';
@@ -53,7 +53,7 @@
 
                 packages.uml-server = mkUmlServer {
                   src = ./.;
-                  umlcpp = uml-cpp.outputs.packages.${system}.uml-cpp_0_4_2;
+                  #umlcpp = uml-cpp.outputs.packages.${system}.uml-cpp_0_4_2;
                 };
                 packages.uml-server_0_1_2 = pkgs.stdenvNoCC.mkDerivation {
                   src = pkgs.fetchurl {

@@ -106,29 +106,65 @@ void UmlServer::handleMessage(ID id, std::string buff) {
         }
     } else if (node["GET"] || node["get"]) {
         ID elID;
+        ID manager_id;
         YAML::Node getNode = (node["GET"] ? node["GET"] : node["get"]);
         if (!getNode.IsScalar()) {
             std::string msg = "ERROR";
             sendMessage(info, msg);
         } else {
-            try {
-                elID = ID::fromString(getNode.as<std::string>());
-            } catch(__attribute__((unused)) std::exception& e1) {
-                try {
-                    // std::shared_lock<std::shared_timed_mutex> graphLck(m_graphMtx);
-                    elID = m_urls.at(getNode.as<std::string>());
+            auto get_request_string = getNode.as<std::string>();
+            auto has_question_mark = get_request_string.find("?");
+            if (has_question_mark != std::string::npos) {
+                auto get_request_parameters_string = get_request_string.substr(has_question_mark + 1);
+                std::stringstream parameters_stream(get_request_parameters_string);
+                std::string current_parameter;
+                while (std::getline(parameters_stream, current_parameter, '&')) {
+                    auto equal_sign_pos = current_parameter.find("=");
+                    if (equal_sign_pos == std::string::npos) {
+                        std::string msg = "{\"error\":\"get request invalid parameter, no '=' found in parameter\"}";
+                        log(msg);
+                        sendMessage(info, msg);
+                        return;
+                    }
+                    
+                    auto parameter_name = current_parameter.substr(0, equal_sign_pos);
+                    auto parameter_value = current_parameter.substr(equal_sign_pos + 1);
+                    if (parameter_name == "manager") {
+                        manager_id = ID::fromString(parameter_value);
+                    } else {
+                        std::string msg = "{\"error\":\"get request had unrecognized parameter : " + parameter_name + "\"}";
+                        log(msg);
+                        sendMessage(info, msg);
+                        return;
+                    }
+                }
+            } else if (ID::isValid(get_request_string)) {
+                // assuming request is id of element
+                elID = ID::fromString(get_request_string);
+            } else {
+               // might be head or name of valid scoped element
+               try {
+                    elID = m_urls.at(get_request_string);
                 } catch (std::exception& e) {
                     log(e.what());
                     std::string msg = std::string("{\"ERROR\":\"") + std::string(e.what()) + std::string("\"}");
                     sendMessage(info, msg);
-                    return;
-                }
+                    return; // does not log end message TODO
+                } 
             }
             try {
-                ElementPtr el = abstractGet(elID);
-                std::string msg = this->emitIndividual(*el);
-                sendMessage(info, msg);
-                log("server got element " +  elID.string() + " for client " + id.string() + ":\n" + msg);
+                if (manager_id == ID::nullID()) {
+                    ElementPtr el = abstractGet(elID);
+                    std::string msg = this->emitIndividual(*el);
+                    sendMessage(info, msg);
+                    log("server got element " +  elID.string() + " for client " + id.string() + ":\n" + msg);
+                } else {
+                    MetaManager& meta_manager = m_meta_managers.at(manager_id);
+                    MetaManager::Pointer<MetaElement> el = meta_manager.get(elID);
+                    std::string msg = meta_manager.emit_meta_element(*el);
+                    sendMessage(info, msg);
+                    log("server got element " + elID.string() + " from manager " + manager_id.string() + " for client " + id.string() + " :\n" + msg);
+                }
             } catch (std::exception& e) {
                 log(e.what());
                 std::string msg = std::string("{\"ERROR\":\"") + std::string(e.what()) + std::string("\"}");

@@ -135,5 +135,9 @@ namespace UML {
             UmlManager& getUmlManager() const {
                 return m_uml_manager;
             }
+
+            std::string emit_meta_element(MetaManager::Implementation<MetaElement>& el) {
+                return emitIndividual(el);
+            }
     };
 }

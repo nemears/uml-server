@@ -5,26 +5,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1742131832,
-        "narHash": "sha256-nQfsYKBCYwL+O7vVSX5dWo2fnuntxNHKSIkAM87VkjI=",
-        "path": "/home/emory/Projects/egm",
-        "type": "path"
-      },
-      "original": {
-        "path": "/home/emory/Projects/egm",
-        "type": "path"
-      }
-    },
-    "egm_2": {
-      "inputs": {
-        "nixpkgs": "nixpkgs_2"
-      },
-      "locked": {
-        "lastModified": 1741742039,
-        "narHash": "sha256-UofMaTjnNyfnq/BMLL+4/837GNMSVYpRPCjY7ZlGBL4=",
+        "lastModified": 1742175256,
+        "narHash": "sha256-xkG3ldQ47cUql2rcocUvhrxWJ+GIFjdh3WSp69Mxa4Q=",
         "owner": "nemears",
         "repo": "egm",
-        "rev": "1e5879cb5df80b960b33e2d76b3b19c42628ae66",
+        "rev": "b06906a9321cf40d03f1f8fd0a0df6f994d232f9",
         "type": "github"
       },
       "original": {
@@ -87,22 +72,6 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1741010256,
-        "narHash": "sha256-WZNlK/KX7Sni0RyqLSqLPbK8k08Kq7H7RijPJbq9KHM=",
-        "owner": "nixos",
-        "repo": "nixpkgs",
-        "rev": "ba487dbc9d04e0634c64e3b1f0d25839a0a68246",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nixos",
-        "ref": "nixos-unstable",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs_3": {
-      "locked": {
         "lastModified": 1735651292,
         "narHash": "sha256-YLbzcBtYo1/FEzFsB3AnM16qFc6fWPMIoOuSoDwvg9g=",
         "owner": "NixOS",
@@ -119,7 +88,10 @@
     },
     "root": {
       "inputs": {
-        "egm": "egm",
+        "egm": [
+          "uml-cpp",
+          "egm"
+        ],
         "flake-utils": "flake-utils",
         "nixpkgs": [
           "uml-cpp",
@@ -160,16 +132,16 @@
     },
     "uml-cpp": {
       "inputs": {
-        "egm": "egm_2",
+        "egm": "egm",
         "flake-utils": "flake-utils_2",
-        "nixpkgs": "nixpkgs_3"
+        "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1741742354,
-        "narHash": "sha256-bKVBtYld5VAUfcMcZYSS/80f1dITJVyxZCw62CK6UiA=",
+        "lastModified": 1742175525,
+        "narHash": "sha256-KZrGA/3/ZHX/cQPfYiEK7nbbxaFdSVyjHVo+jxsUVMs=",
         "owner": "nemears",
         "repo": "uml-cpp",
-        "rev": "514dd9d215fe490c186c1f3fcad4e625e0ff7aa5",
+        "rev": "e89f118818420d1e36ea0dfc8ca0ed8dc5fc806c",
         "type": "github"
       },
       "original": {

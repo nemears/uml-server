@@ -5,7 +5,8 @@
         flake-utils.url = "github:numtide/flake-utils";
         uml-cpp.url = "github:nemears/uml-cpp";
         nixpkgs.follows = "uml-cpp/nixpkgs";
-        egm.follows = "uml-cpp/egm";
+        #egm.follows = "uml-cpp/egm";
+        egm.url = "path:/home/emory/Projects/egm";
     };
 
     outputs = { self, nixpkgs, flake-utils, uml-cpp, egm }:

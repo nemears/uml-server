@@ -92,13 +92,33 @@ void UmlServer::handleMessage(ID id, std::string buff) {
         sendMessage(info, dump);
         log("dumped server data to client, data: " + dump);
     } else if (node["generate"]) {
-        if (!node["generate"].IsScalar()) {
-            std::string msg = "{\"error\":\"invalid generate request, must be a scalar of id to generate\"}";
+        if (!node["generate"].IsMap()) {
+            std::string msg = "{\"error\":\"invalid generate request, must be a map of id to generate\"}";
             sendMessage(info, msg);
         } else {
-            ID generation_root_id = ID::fromString(node["generate"].as<std::string>());
+            auto generate_node = node["generate"];
+            if (!generate_node["abstraction_root"]) {
+                std::string msg = "{\"error\":\"invalid generate request, must specify an abstraction_root id!\"}";
+                sendMessage(info, msg);
+                
+                // not going to logic at end
+                return;
+            }
+
+            if (!generate_node["storage_root"]) {
+                std::string msg = "{\"error\":\"invalid generte request, must specify a storage_root\"}";
+                sendMessage(info, msg);
+
+                return;
+            }
+            ID generation_root_id = ID::fromString(generate_node["abstrction_root"].as<std::string>());
+            ID storage_root_id = ID::fromString(generate_node["storage_root"].as<std::string>());
             ID manager_id = ID::randomID();
-            m_meta_managers.emplace(manager_id, get(generation_root_id)->as<Package>());
+            m_meta_managers.emplace(
+                    std::piecewise_construct,
+                    std::forward_as_tuple(manager_id), 
+                    std::forward_as_tuple(get(generation_root_id)->as<Package>(), get(storage_root_id)->as<Package>())
+            );
             std::ostringstream oss;
             oss << "{\"manager\":\"" << manager_id.string() << "\"}";
             std::string msg = oss.str();

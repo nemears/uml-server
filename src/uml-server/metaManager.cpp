@@ -18,7 +18,7 @@ AbstractElementPtr MetaElementSerializationPolicy::parseNode(YAML::Node node) {
         if (valNode.IsMap()) {
             // look up key
             try {
-                auto el = m_meta_manager->create(m_meta_manager->m_name_to_type.at(keyNode.as<std::string>()));
+                auto el = m_meta_manager.create(m_meta_manager.m_name_to_type.at(keyNode.as<std::string>()));
                 if (valNode["id"] && valNode["id"].IsScalar()) {
                     el->setID(EGM::ID::fromString(valNode["id"].template as<std::string>()));
                 }
@@ -49,7 +49,7 @@ std::string MetaElementSerializationPolicy::emitIndividual(EGM::AbstractElement&
     serialization_policy->emitScope(emitter, &el);
 
     // emit body
-    std::string elementName = meta_el->m_name;
+    std::string elementName = meta_el->name;
     emitter << YAML::Key << elementName << YAML::Value << YAML::BeginMap;
     emitter << YAML::Key << "id" << YAML::Value << meta_el.id().string();
     serialization_policy->emitBody(emitter, &el);

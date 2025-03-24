@@ -1,10 +1,10 @@
-project('uml-server', 'cpp', version : '0.1.2')
+project('uml-server', 'cpp', version : '0.1.2', default_options: ['cpp_std=c++23'])
 yaml_cpp = dependency('yaml-cpp')
 include_dir = include_directories('include')
 egm = dependency('egm')
 uml_cpp = dependency('uml-cpp')
 uml_server_lib = library('uml-server-protocol', 
-    'src/uml-server/umlServer.cpp', 'src/uml-server/serverPersistencePolicy.cpp', 'src/uml-server/umlClient.cpp', 'src/uml-server/metaManager.cpp',
+    'src/uml-server/umlServer.cpp', 'src/uml-server/serverPersistencePolicy.cpp', 'src/uml-server/umlClient.cpp', 'src/uml-server/metaManager.cpp', 'src/uml-server/umlServerSerializationPolicy.cpp',
     include_directories : include_dir, 
     dependencies: [egm, uml_cpp, yaml_cpp]
 )

@@ -1,5 +1,6 @@
 #include "uml/uml-stable.h"
 #include "uml-server/umlServer.h"
+#include <expected>
 #ifndef WIN32
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -46,6 +47,41 @@ void UmlServer::sendMessage(UmlServer::ClientInfo& info, std::string& data) {
     }
 }
 
+using ParameterPair = std::pair<std::string, std::string>;
+using RequestInfo = std::pair<std::variant<ID, std::string>, std::vector<ParameterPair>>;
+
+/**
+ * This function takes a request string of the form 28_char_ID?parameter1=value1&parameter2=value2 etc...
+ * It returns either a RequestInfo object, or an error string wrapped in an expected
+ **/
+static std::expected<RequestInfo, std::string> parse_id_and_parms(std::string request_string) {
+    auto has_question_mark = request_string.find("?");
+    if (has_question_mark != std::string::npos) {
+        ID parsed_id = ID::fromString(request_string.substr(0, has_question_mark));
+        std::vector<std::pair<std::string, std::string>> parsed_parameters;
+        auto get_request_parameters_string = request_string.substr(has_question_mark + 1);
+        std::stringstream parameters_stream(get_request_parameters_string);
+        std::string current_parameter;
+        while (std::getline(parameters_stream, current_parameter, '&')) {
+            auto equal_sign_pos = current_parameter.find("=");
+            if (equal_sign_pos == std::string::npos) {
+                std::string msg = "{\"error\":\"get request invalid parameter, no '=' found in parameter\"}";
+                return std::unexpected(msg);
+            }
+            
+            auto parameter_name = current_parameter.substr(0, equal_sign_pos);
+            auto parameter_value = current_parameter.substr(equal_sign_pos + 1);
+            parsed_parameters.push_back(std::pair<std::string, std::string>(parameter_name, parameter_value));
+        }
+        return std::pair<std::variant<ID, std::string>, std::vector<ParameterPair>>(parsed_id, parsed_parameters);
+    } else {
+        if (!ID::isValid(request_string)) {
+            return std::pair<std::variant<ID, std::string>, std::vector<ParameterPair>>(request_string, std::vector<ParameterPair>{}); 
+        }
+        return std::pair<std::variant<ID, std::string>, std::vector<ParameterPair>>(ID::fromString(request_string), std::vector<ParameterPair>{});
+    }
+}
+
 void UmlServer::handleMessage(ID id, std::string buff) {
     std::lock_guard<std::mutex> handleLock(m_messageHandlerMtx);
     ClientInfo& info = m_clients[id];
@@ -76,104 +112,125 @@ void UmlServer::handleMessage(ID id, std::string buff) {
         return;
     }
     if (node["DELETE"] || node["delete"]) {
-        ID elID = ID::fromString((node["DELETE"] ? node["DELETE"] : node["delete"]).as<std::string>());
-        try {
-            ElementPtr elToErase = get(elID);
-            erase(*elToErase);
-            log("erased element " + elID.string());
-            std::lock_guard<std::mutex> garbageLck(m_garbageMtx);
-            m_releaseQueue.remove(elID);
-            m_numEls--;
-        } catch (std::exception& e) {
-            log("exception encountered when trying to delete element: " + std::string(e.what()));
+
+        auto delete_node = node["DELETE"] ? node["DELETE"] : node["delete"];
+
+        if (!delete_node.IsScalar()) {
+            log("bad formatting for delete request!");
+            return;
+        }
+
+        std::string delete_request_string = delete_node.as<std::string>();
+
+        auto parse_result = parse_id_and_parms(delete_request_string);
+
+        if (!parse_result) {
+            log(parse_result.error());
+            return;
+        }
+        
+        ID meta_manager_id;
+        if (parse_result->second.size() > 0) {
+            for (auto& parameter_pair : parse_result->second) {
+                if (parameter_pair.first == "manager") {
+                    meta_manager_id = ID::fromString(parameter_pair.second);
+                }
+            }
+        }
+        
+        ID elID;
+        // std::optional<std::string> url;
+        if (parse_result->first.index() == 0) {
+            elID = std::get<ID>(parse_result->first);
+        } else {
+            log("bad delete request, must specify an id!");
+            return;
+            // url = std::get<std::string>(parse_result->first);
+        }
+
+
+        if (meta_manager_id != ID::nullID()) {
+            MetaManager& meta_manager = m_meta_managers.at(meta_manager_id);
+            auto el_to_erase = meta_manager.get(elID);
+            meta_manager.erase(*el_to_erase);
+            log("erased element " + elID.string() + " from meta manager " + meta_manager_id.string());
+        } else {
+            try {
+                ElementPtr elToErase = get(elID);
+                erase(*elToErase);
+                log("erased element " + elID.string());
+                std::lock_guard<std::mutex> garbageLck(m_garbageMtx);
+                m_releaseQueue.remove(elID);
+                m_numEls--;
+            } catch (std::exception& e) {
+                log("exception encountered when trying to delete element: " + std::string(e.what()));
+            }
         }
     } else if (node["DUMP"] || node["dump"]) {
         std::string dump = this->dumpYaml();
         sendMessage(info, dump);
         log("dumped server data to client, data: " + dump);
     } else if (node["generate"]) {
-        if (!node["generate"].IsMap()) {
-            std::string msg = "{\"error\":\"invalid generate request, must be a map of id to generate\"}";
+        if (!node["generate"].IsScalar()) {
+            std::string msg = "{\"error\":\"invalid generate request, must be a scalar of an id to generate!\"}"; 
             sendMessage(info, msg);
+            log(msg);
         } else {
-            auto generate_node = node["generate"];
-            if (!generate_node["abstraction_root"]) {
-                std::string msg = "{\"error\":\"invalid generate request, must specify an abstraction_root id!\"}";
-                sendMessage(info, msg);
-                
-                // not going to logic at end
-                return;
-            }
-
-            if (!generate_node["storage_root"]) {
-                std::string msg = "{\"error\":\"invalid generte request, must specify a storage_root\"}";
-                sendMessage(info, msg);
-
-                return;
-            }
-            ID generation_root_id = ID::fromString(generate_node["abstrction_root"].as<std::string>());
-            ID storage_root_id = ID::fromString(generate_node["storage_root"].as<std::string>());
+            ID generation_root_id = ID::fromString(node["generate"].as<std::string>());
             ID manager_id = ID::randomID();
-            m_meta_managers.emplace(
-                    std::piecewise_construct,
-                    std::forward_as_tuple(manager_id), 
-                    std::forward_as_tuple(get(generation_root_id)->as<Package>(), get(storage_root_id)->as<Package>())
-            );
-            std::ostringstream oss;
+            m_meta_managers.emplace(manager_id, get(generation_root_id)->as<Package>());
+
+            std::ostringstream oss;                                   
             oss << "{\"manager\":\"" << manager_id.string() << "\"}";
             std::string msg = oss.str();
             sendMessage(info, msg);
+            log("generated manager with id " + manager_id.string());
         }
     } else if (node["GET"] || node["get"]) {
         ID elID;
         ID manager_id;
         YAML::Node getNode = (node["GET"] ? node["GET"] : node["get"]);
         if (!getNode.IsScalar()) {
-            std::string msg = "ERROR";
+            std::string msg = "{\"error\":\"invalid format for get request! Must be formatted as a scalar string!\"}";
             sendMessage(info, msg);
+            log(msg);
         } else {
-            auto get_request_string = getNode.as<std::string>();
-            auto has_question_mark = get_request_string.find("?");
-            if (has_question_mark != std::string::npos) {
-                auto get_request_parameters_string = get_request_string.substr(has_question_mark + 1);
-                std::stringstream parameters_stream(get_request_parameters_string);
-                std::string current_parameter;
-                while (std::getline(parameters_stream, current_parameter, '&')) {
-                    auto equal_sign_pos = current_parameter.find("=");
-                    if (equal_sign_pos == std::string::npos) {
-                        std::string msg = "{\"error\":\"get request invalid parameter, no '=' found in parameter\"}";
-                        log(msg);
-                        sendMessage(info, msg);
-                        return;
-                    }
-                    
-                    auto parameter_name = current_parameter.substr(0, equal_sign_pos);
-                    auto parameter_value = current_parameter.substr(equal_sign_pos + 1);
-                    if (parameter_name == "manager") {
-                        manager_id = ID::fromString(parameter_value);
-                    } else {
-                        std::string msg = "{\"error\":\"get request had unrecognized parameter : " + parameter_name + "\"}";
-                        log(msg);
-                        sendMessage(info, msg);
-                        return;
-                    }
-                }
-            } else if (ID::isValid(get_request_string)) {
-                // assuming request is id of element
-                elID = ID::fromString(get_request_string);
-            } else {
-               // might be head or name of valid scoped element
-               try {
-                    elID = m_urls.at(get_request_string);
-                } catch (std::exception& e) {
-                    log(e.what());
-                    std::string msg = std::string("{\"ERROR\":\"") + std::string(e.what()) + std::string("\"}");
-                    sendMessage(info, msg);
-                    return; // does not log end message TODO
-                } 
+            // parse id and parameters from request
+            auto parse_result = parse_id_and_parms(getNode.as<std::string>());
+
+            if (!parse_result) {
+                std::string msg = "{\"error\":\"problem while parsing get request parameters: " + parse_result.error() + "\"}";
+                log(msg);
+                sendMessage(info, msg);
+                return;
             }
+
+            for (auto& parameter_pair : parse_result->second) {
+                if (parameter_pair.first == "manager") {
+                    manager_id = ID::fromString(parameter_pair.second);
+                } else {
+                    std::string msg = "{\"error\":\"invalid parameter in get request: " + parameter_pair.first + "\"}";
+                    log(msg);
+                    sendMessage(info, msg);
+                    return;
+                }
+            }
+
+            std::optional<std::string> url;
+            if (parse_result->first.index() == 0) {
+                elID = std::get<ID>(parse_result->first);
+            } else {
+                url = std::get<std::string>(parse_result->first);
+            } 
+
+
+            // process request
             try {
                 if (manager_id == ID::nullID()) {
+                    if (elID == ID::nullID()) {
+                        // TODO check url
+                        elID = m_urls.at(*url);
+                    }
                     ElementPtr el = abstractGet(elID);
                     std::string msg = this->emitIndividual(*el);
                     sendMessage(info, msg);
@@ -189,7 +246,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                 log(e.what());
                 std::string msg = std::string("{\"ERROR\":\"") + std::string(e.what()) + std::string("\"}");
                 sendMessage(info, msg);
-            }
+            } 
         }
     } else if (node["POST"] || node["post"]) {
         log("server handling post request from client " + id.string());
@@ -202,42 +259,77 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                 ret = create(type);
                 ret->setID(id);
             } else if (postNode.IsMap()) {
-                if (postNode["type"]) {
-                    auto type = names_to_element_type.at(postNode["type"].as<std::string>());
-                    ElementPtr ret = create(type);
-                    if (postNode["id"]) {
-                        ret->setID(ID::fromString(postNode["id"].as<std::string>()));
-                        log("set id of posted element to " + ret.id().string());
+                ManagedPtr<AbstractElement> created_element;
+                auto manager_node = postNode["manager"];
+                if (manager_node) {
+                    if (!manager_node.IsScalar()) {
+                        std::string msg = "{\"error\":\"post request improperly formatted, manager must be a scalar!\"}";
+                        log(msg);
+                        // sendMessage(info, msg);
+                        return;
                     }
-                    if (postNode["url"]) {
-                        auto urlVal = postNode["url"].as<std::string>();
-                        if (ID::isValid(urlVal)) {
-                            ret->setID(ID::fromString(urlVal));
-                        } else {
-                            // break up url into path and find owner
-                            log("TODO url specified for POST request!");
-                        }                        
+
+                    if (!ID::isValid(manager_node.as<std::string>())) {
+                        std::string msg = "{\"error\":\"post request manager not a valid id!\"}";
+                        log(msg);
+                        // sendMessage(info, msg);
+                        return;
                     }
-                    if (postNode["name"] && ret->is<NamedElement>()) {
-                        NamedElementPtr namedPtr = ret;
-                        namedPtr->setName(postNode["name"].as<std::string>());
+                    
+                    ID manager_id = ID::fromString(manager_node.as<std::string>());
+
+                    MetaManager& meta_manager = m_meta_managers.at(manager_id);
+                    
+                    if (!postNode["type"]) {
+                        std::string msg = "{\"error\":\"post request did not specify type!\"}";
+                        log(msg);
+                        return;
                     }
-                    if (postNode["owner"]) {
-                        if (postNode["set"]) {
-                            auto owner = get(ID::fromString(postNode["owner"].as<std::string>()));
-                            std::string setName = postNode["set"].as<std::string>();
-                            this->m_types.at(owner->getElementType())->forEachSet(*owner, [this, setName, ret](std::string name , AbstractSet& set) {
-                                if (name == setName) {
-                                    this->addToSet(set, *ret);
-                                }
-                            });
-                        } else {
-                            // TODO find appropriate set by type
-                            log("TODO! owner specified but not the set, TODO automatically infer best set for owner");
-                        }
-                    }
+
+                    created_element = meta_manager.create(meta_manager.m_name_to_type.at(postNode["type"].as<std::string>()));
+                    // other post properties aren't relevant as of now
+                    
                 } else {
-                    throw ManagerStateException("Must specify type when posting a uml element");
+                    if (postNode["type"]) {
+                        auto type = names_to_element_type.at(postNode["type"].as<std::string>());
+                        ElementPtr ret = create(type);
+                        
+                        if (postNode["url"]) {
+                            auto urlVal = postNode["url"].as<std::string>();
+                            if (ID::isValid(urlVal)) {
+                                ret->setID(ID::fromString(urlVal));
+                            } else {
+                                // break up url into path and find owner
+                                log("TODO url specified for POST request!");
+                            }                        
+                        }
+                        if (postNode["name"] && ret->is<NamedElement>()) {
+                            NamedElementPtr namedPtr = ret;
+                            namedPtr->setName(postNode["name"].as<std::string>());
+                        }
+                        if (postNode["owner"]) {
+                            if (postNode["set"]) {
+                                auto owner = get(ID::fromString(postNode["owner"].as<std::string>()));
+                                std::string setName = postNode["set"].as<std::string>();
+                                this->m_types.at(owner->getElementType())->forEachSet(*owner, [this, setName, ret](std::string name , AbstractSet& set) {
+                                    if (name == setName) {
+                                        this->addToSet(set, *ret);
+                                    }
+                                });
+                            } else {
+                                // TODO find appropriate set by type
+                                log("TODO! owner specified but not the set, TODO automatically infer best set for owner");
+                            }
+                        }
+                        created_element = ret;
+                    } else {
+                        throw ManagerStateException("Must specify type when posting a uml element");
+                    }
+                }
+
+                if (postNode["id"]) {
+                    created_element->setID(ID::fromString(postNode["id"].as<std::string>()));
+                    log("set id of posted element to " + created_element.id().string());
                 }
             }
             log("server created new element for client" + id.string());
@@ -249,25 +341,61 @@ void UmlServer::handleMessage(ID id, std::string buff) {
         }
     } else if (node["PUT"] || node["put"]) {
         YAML::Node putNode = (node["PUT"] ? node["PUT"] : node["put"]);
-        try {
-            ElementPtr el = parseNode(putNode["element"]);
+        if (!putNode.IsMap()) {
+            std::string msg = "{\"error\":\"Improper formatting for put request! Must be a map!\"}";
+            log(msg);
+            return;
+        }
+
+        auto manager_node = putNode["manager"];
+        if (manager_node) {
+            if (!manager_node.IsScalar()) {
+                std::string error_msg = "{\"error\":\"Bad format for put request manager field! Must be a scalar id!\"}";
+                log(error_msg);
+                return;
+            }
+            
+            if (!ID::isValid(manager_node.as<std::string>())) {
+                std::string error_msg = "{\"error\":\"Bad format for put request manager field! Improper id format!\"}";
+                log(error_msg);
+                return;
+            }
+
+            auto element_node = putNode["element"];
+            if (!element_node.IsMap()) {
+                std::string error_msg = "{\"error\":\"Bad format for put request element field! Field must be a map!\"}";
+                log(error_msg);
+                return;
+            }
+
+            MetaManager& meta_manager = m_meta_managers.at(ID::fromString(manager_node.as<std::string>()));
+
+            auto el = meta_manager.parse_node(element_node);
             if (el) {
-                // run add policies we skipped over
                 restoreElAndOpposites(el);
             }
-            bool isRoot = false;
-            if (putNode["qualifiedName"]) {
-                if (putNode["qualifiedName"].as<std::string>().compare("") == 0) {
-                    isRoot = true;
+            log("put element " + el.id().string() + " to meta manager " + manager_node.as<std::string>() + " for client " + id.string() + " succesfully!");
+        } else {
+            try {
+                ElementPtr el = parseNode(putNode["element"]);
+                if (el) {
+                    // run add policies we skipped over
+                    restoreElAndOpposites(el);
                 }
-                m_urls[putNode["qualifiedName"].as<std::string>()] = el.id();
+                bool isRoot = false;
+                if (putNode["qualifiedName"]) {
+                    if (putNode["qualifiedName"].as<std::string>().compare("") == 0) {
+                        isRoot = true;
+                    }
+                    m_urls[putNode["qualifiedName"].as<std::string>()] = el.id();
+                }
+                if (isRoot) {
+                    setRoot(*el);
+                }
+                log("server put element " + el.id().string() + " successfully for client " + id.string());
+            } catch (std::exception& e) {
+                log("Error parsing PUT request: " + std::string(e.what()));
             }
-            if (isRoot) {
-                setRoot(*el);
-            }
-            log("server put element " + el.id().string() + " successfully for client " + id.string());
-        } catch (std::exception& e) {
-            log("Error parsing PUT request: " + std::string(e.what()));
         }
     } else if (node["SAVE"] || node["save"]) {
         YAML::Node saveNode = (node["SAVE"] ? node["SAVE"] : node["save"]);
@@ -602,6 +730,7 @@ void UmlServer::log(std::string msg) {
 }
 
 UmlServer::UmlServer(int port, bool deferStart) {
+    m_uml_server = this;
     fill_names_to_element_type<UmlTypes>::fill(*this);    
     m_port = port;
     if (!deferStart) {

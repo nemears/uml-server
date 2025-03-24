@@ -43,39 +43,30 @@ namespace EGM {
 }
 
 namespace UML {
+
+    class UmlServer;
+
     struct MetaElementSerializationPolicy : public EGM::YamlSerializationPolicy<EGM::TemplateTypeList<MetaElement>> {
         protected:
-            MetaManager& m_meta_manager;
+            MetaManager* m_meta_manager;
             EGM::AbstractElementPtr parseNode(YAML::Node node) override;  
             std::string emitIndividual(EGM::AbstractElement& el) override;
-        public:
-            MetaElementSerializationPolicy(MetaManager* meta_manager) : m_meta_manager(*meta_manager) {}
     };
 
-    class MetaManagerStoragePolicy {
-        protected:
-            EGM::AbstractElementPtr loadElement(EGM::ID id) {
-                
-            }
-            void saveElement(EGM::AbstractElement& el) {
-                
-            }
-            void eraseEl(EGM::ID id) {
-                // TODO
-            }
-    };
-
-    class MetaManager : public EGM::Manager<EGM::TemplateTypeList<MetaElement>, MetaManagerStoragePolicy>, public MetaElementSerializationPolicy {
+    class MetaManager : public EGM::Manager<EGM::TemplateTypeList<MetaElement>, EGM::SerializedStoragePolicy<MetaElementSerializationPolicy, EGM::FilePersistencePolicy>> {
         friend struct MetaElementSerializationPolicy;
+        friend class UmlServer;
         private:
-            using BaseManager = EGM::Manager<EGM::TemplateTypeList<MetaElement>, MetaManagerStoragePolicy>;
+            using BaseManager = EGM::Manager<EGM::TemplateTypeList<MetaElement>, EGM::SerializedStoragePolicy<MetaElementSerializationPolicy, EGM::FilePersistencePolicy>>;
             using MetaElementPtr = BaseManager::Pointer<MetaElement>;
             using MetaElementImpl = BaseManager::Implementation<MetaElement>;
             UmlManager& m_uml_manager;
             UmlManager::Pointer<Package> m_storage_root;
+            UmlManager::Pointer<Package> m_generation_root;
             std::unordered_map<std::size_t, UmlManager::Pointer<Classifier>> m_uml_types;
             std::unordered_map<EGM::ID, std::size_t> m_id_to_type;
             std::unordered_map<std::string, std::size_t> m_name_to_type;
+            std::unordered_set<EGM::ID> m_meta_elements;
 
         public:
 
@@ -86,14 +77,20 @@ namespace UML {
             static const EGM::ID string_type_id() { return EGM::ID::fromString("string_L&R5eAEq6f3LUNtUmzHzT"); }
             static const EGM::ID unlimited_natural_type_id() { return EGM::ID::fromString("qlCO1PwnQkJ4kg7DLifFEs0OSv9e"); }
 
-            MetaManager(UmlManager::Implementation<Package>& abstraction_root, UmlManager::Implementation<Package>& storage_root) : 
-                MetaElementSerializationPolicy(this),
+            MetaManager(UmlManager::Implementation<Package>& abstraction_root) : 
                 m_uml_manager(dynamic_cast<UmlManager&>(abstraction_root.getManager()))
             {
                 
                 // link to serialization policy
-                // set storage_root
-                m_storage_root = &storage_root;
+                m_meta_manager = this;
+
+                m_generation_root = &abstraction_root;
+
+                // set the storage root to be a floating package
+                // (this is usually bad practice cause it won't be "saved" by the manager
+                // but th storage roots of the meta managers are included specially within UmlServer's 
+                // Storage policy TODO)
+                m_storage_root = m_uml_manager.create<Package>();
                
                 // set up types 
                 std::list<UmlManager::Pointer<PackageableElement>> queue = { &abstraction_root };
@@ -156,6 +153,8 @@ namespace UML {
             EGM::AbstractElementPtr create(std::size_t elementType) override {
                 
                 auto meta_element = BaseManager::template create<MetaElement>();
+
+                m_meta_elements.insert(meta_element.id());
                 
                 // get representing classifier
                 auto meta_type = m_uml_types.at(elementType);
@@ -314,7 +313,12 @@ namespace UML {
 
                 
                 return meta_element; 
+            }
 
+            void reindex(EGM::ID oldID, EGM::ID newID) override {
+                BaseManager::reindex(oldID, newID);
+                m_meta_elements.erase(oldID);
+                m_meta_elements.insert(newID);
             }
 
             MetaElementPtr create(EGM::ID id) {
@@ -325,8 +329,38 @@ namespace UML {
                 return m_uml_manager;
             }
 
+            UmlManager::Pointer<Package> get_generation_root() const {
+                return m_generation_root;
+            }
+
             std::string emit_meta_element(MetaManager::Implementation<MetaElement>& el) {
                 return emitIndividual(el);
             }
+
+            MetaElementPtr parse_node(YAML::Node node) {
+                return parseNode(node);
+            }
+
+            void dump_all_data(YAML::Emitter& emitter) {
+                emitter << YAML::BeginSeq;
+                for (auto id : m_meta_elements) {
+                    MetaElementPtr meta_element = get(id);
+                    emitter << YAML::BeginMap;
+                    FindValidScopeVisitor scope_visitor { meta_element };
+                    scope_visitor.visit<MetaElement>();
+                    if (scope_visitor.validMatch) {
+                        emitter << YAML::Key << scope_visitor.validMatch->first;
+                        emitter << YAML::Value << (*scope_visitor.validMatch->second->beginPtr()).getCurr().id().string();
+                    }
+                    emitter << YAML::Key << meta_element->name;
+                    emitter << YAML::Value << YAML::BeginMap;
+                    emitter << YAML::Key << "id" << YAML::Value << id.string();
+                    EmitVisitor visitor { meta_element, emitter };
+                    visitor.visit<MetaElement>();
+                    emitter << YAML::EndMap;
+                }
+                emitter << YAML::EndSeq;
+            }
+
     };
 }

@@ -25,10 +25,20 @@ namespace std {
 
 namespace UML {
 
-    class UmlServer : public EGM::Manager<UmlTypes, EGM::SerializedStoragePolicy<EGM::JsonSerializationPolicy<UmlTypes>, EGM::FilePersistencePolicy>> {
+    class UmlServer;
+
+    struct UmlServerSerializationPolicy : public EGM::JsonSerializationPolicy<UmlTypes> {
+        std::vector<EGM::ManagedPtr<EGM::AbstractElement>> parseWhole(std::string data) override;
+        std::string emitWhole(EGM::AbstractElement& el) override;
+        protected:
+            UmlServer* m_uml_server = 0;
+    };
+
+    class UmlServer : public EGM::Manager<UmlTypes, EGM::SerializedStoragePolicy<UmlServerSerializationPolicy, EGM::FilePersistencePolicy>> {
 
         private:
-            using BaseManager = EGM::Manager<UmlTypes, EGM::SerializedStoragePolicy<EGM::JsonSerializationPolicy<UmlTypes>, EGM::FilePersistencePolicy>>; 
+            friend struct UmlServerSerializationPolicy;
+            using BaseManager = EGM::Manager<UmlTypes, EGM::SerializedStoragePolicy<UmlServerSerializationPolicy, EGM::FilePersistencePolicy>>; 
 
             struct ClientInfo {
                 socketType socket;

@@ -18,7 +18,7 @@ AbstractElementPtr MetaElementSerializationPolicy::parseNode(YAML::Node node) {
         if (valNode.IsMap()) {
             // look up key
             try {
-                auto el = m_meta_manager.create(m_meta_manager.m_name_to_type.at(keyNode.as<std::string>()));
+                auto el = m_meta_manager->create(m_meta_manager->m_name_to_type.at(keyNode.as<std::string>()));
                 if (valNode["id"] && valNode["id"].IsScalar()) {
                     el->setID(EGM::ID::fromString(valNode["id"].template as<std::string>()));
                 }

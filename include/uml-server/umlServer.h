@@ -135,5 +135,7 @@ namespace UML {
             int waitTillShutDown();
             void setRoot(EGM::AbstractElementPtr el) override;
             void setRoot(UmlManager::Implementation<Element>& el);
+            void erase(EGM::AbstractElement& el) override;
+            void release(EGM::AbstractElement& el) override;
     };
 }

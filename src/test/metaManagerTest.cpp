@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "uml-server/metaManager.h"
+#include "uml-server/constants.h"
 
 using namespace UML;
 using namespace EGM;
@@ -53,11 +54,11 @@ TEST_F(MetaManagerTest, dataTypeTest) {
     auto string_type = m.create<PrimitiveType>();
     auto unlimited_natural_type = m.create<PrimitiveType>();
 
-    bool_type->setID(MetaManager::boolean_type_id());
-    int_type->setID(MetaManager::integer_type_id());
-    real_type->setID(MetaManager::real_type_id());
-    string_type->setID(MetaManager::string_type_id());
-    unlimited_natural_type->setID(MetaManager::unlimited_natural_type_id());
+    bool_type->setID(boolean_type_id);
+    int_type->setID(integer_type_id);
+    real_type->setID(real_type_id);
+    string_type->setID(string_type_id);
+    unlimited_natural_type->setID(unlimited_natural_type_id);
     
     bool_type->setName("Boolean");
     int_type->setName("Integer");
@@ -131,4 +132,40 @@ TEST_F(MetaManagerTest, dataTypeTest) {
     ASSERT_EQ(clazz_impl->data.at(string_property.id())->getData(), "cat");
     clazz_impl->data.at(string_property.id())->setData("gatita");
     ASSERT_EQ(clazz_impl->data.at(string_property.id())->getData(), "gatita");
+}
+
+TEST_F(MetaManagerTest, different_set_types) {
+    UmlManager m;
+    auto root = m.create<Package>();
+    auto clazz = m.create<Class>();
+    auto type = m.create<Class>();
+    auto set_property = m.create<Property>();
+    auto ordered_property = m.create<Property>();
+    auto singleton_property = m.create<Property>();
+    auto singleton_upper = m.create<LiteralInteger>();
+
+    root->getPackagedElements().add(clazz);
+    root->getPackagedElements().add(type);
+    root->setName("root");
+    clazz->setName("clazz");
+    type->setName("type");
+    set_property->setName("set");
+    ordered_property->setName("ordered");
+    singleton_property->setName("singleton");
+    set_property->setType(type);
+    ordered_property->setType(type);
+    singleton_property->setType(type);
+    ordered_property->setIsOrdered(true);
+    singleton_property->setUpperValue(singleton_upper);
+    singleton_upper->setValue(1);
+    clazz->getOwnedAttributes().add(set_property);
+    clazz->getOwnedAttributes().add(ordered_property);
+    clazz->getOwnedAttributes().add(singleton_property);
+
+    MetaManager meta_manager(*root);
+    auto meta_element = meta_manager.create(clazz.id());
+    ASSERT_EQ(meta_element->sets.size(), 3);
+    ASSERT_EQ(meta_element->sets.at(set_property.id())->setType(), SetType::SET);
+    ASSERT_EQ(meta_element->sets.at(ordered_property.id())->setType(), SetType::ORDERED_SET);
+    ASSERT_EQ(meta_element->sets.at(singleton_property.id())->setType(), SetType::SINGLETON);
 }

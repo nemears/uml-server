@@ -82,6 +82,21 @@ static std::expected<RequestInfo, std::string> parse_id_and_parms(std::string re
     }
 }
 
+#define NOT_SCALAR 1
+#define NOT_ID 2
+
+int check_id(YAML::Node id_node) {
+    if (!id_node.IsScalar()) {
+        return NOT_SCALAR;
+    }
+
+    if (!ID::isValid(id_node.as<std::string>())) {
+        return NOT_ID;
+    }
+
+    return 0;
+}
+
 void UmlServer::handleMessage(ID id, std::string buff) {
     std::lock_guard<std::mutex> handleLock(m_messageHandlerMtx);
     ClientInfo& info = m_clients[id];
@@ -178,9 +193,12 @@ void UmlServer::handleMessage(ID id, std::string buff) {
         } else {
             ID generation_root_id = ID::fromString(node["generate"].as<std::string>());
             ID manager_id = ID::randomID();
-            m_meta_managers.emplace(manager_id, get(generation_root_id)->as<Package>());
+            MetaManager& created_manager = m_meta_managers.emplace(manager_id, get(generation_root_id)->as<Package>()).first->second;
+            // set storage root to correspond to manager id
+            // this helps the server quickly identify what manager an instance is part of
+            created_manager.m_storage_root->setID(manager_id);
 
-            std::ostringstream oss;                                   
+            std::ostringstream oss;
             oss << "{\"manager\":\"" << manager_id.string() << "\"}";
             std::string msg = oss.str();
             sendMessage(info, msg);
@@ -262,20 +280,18 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                 ManagedPtr<AbstractElement> created_element;
                 auto manager_node = postNode["manager"];
                 if (manager_node) {
-                    if (!manager_node.IsScalar()) {
-                        std::string msg = "{\"error\":\"post request improperly formatted, manager must be a scalar!\"}";
-                        log(msg);
-                        // sendMessage(info, msg);
-                        return;
+                    switch (check_id(manager_node)) {
+                        case NOT_SCALAR: {
+                            std::string msg = "{\"error\":\"post request improperly formatted, manager must be a scalar!\"}";
+                            log(msg);
+                            return;
+                        }
+                        case NOT_ID: {
+                            std::string msg = "{\"error\":\"post request manager not a valid id!\"}";
+                            log(msg);
+                            return;
+                        }
                     }
-
-                    if (!ID::isValid(manager_node.as<std::string>())) {
-                        std::string msg = "{\"error\":\"post request manager not a valid id!\"}";
-                        log(msg);
-                        // sendMessage(info, msg);
-                        return;
-                    }
-                    
                     ID manager_id = ID::fromString(manager_node.as<std::string>());
 
                     MetaManager& meta_manager = m_meta_managers.at(manager_id);
@@ -286,9 +302,29 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                         return;
                     }
 
-                    created_element = meta_manager.create(meta_manager.m_name_to_type.at(postNode["type"].as<std::string>()));
-                    // other post properties aren't relevant as of now
-                    
+                    auto element_type = meta_manager.m_name_to_type.at(postNode["type"].as<std::string>());
+
+                    auto applying_element_node = postNode["applying_element"];
+                    if (applying_element_node) {
+                        // post request is asking us to apply a stereotype from this manager
+                        switch (check_id(applying_element_node)) {
+                            case NOT_SCALAR: {
+                                std::string msg = "{\"error\":\"post request improperly formatted, manager must be a scalar!\"}";
+                                log(msg);
+                                return;
+                            }
+                            case NOT_ID: {
+                                std::string msg = "{\"error\":\"post request manager not a valid id!\"}";
+                                log(msg);
+                                return;
+                            }
+                        }
+
+                        UmlManager::Pointer<Element> uml_element = get(ID::fromString(applying_element_node.as<std::string>()));
+                        created_element = meta_manager.apply(*uml_element, element_type);
+                    } else {
+                        created_element = meta_manager.create(element_type);
+                    }
                 } else {
                     if (postNode["type"]) {
                         auto type = names_to_element_type.at(postNode["type"].as<std::string>());
@@ -981,4 +1017,35 @@ void UmlServer::setRoot(AbstractElementPtr el) {
 
 void UmlServer::setRoot(UmlServer::Implementation<Element>& el) {
     setRoot(&el);
+}
+
+void UmlServer::erase(AbstractElement& el) {
+    // make sure any stereotype data is freed first
+    auto& uml_element = dynamic_cast<UmlManager::Implementation<Element>&>(el);
+    for (auto& applied_stereotype : uml_element.getAppliedStereotypes()) {
+        // get meta_manager from applied_stereotype owning package (will be same id as manager)
+        auto& meta_manager = m_meta_managers.at(applied_stereotype.getOwningPackage().id());
+
+        // erase stereotype data so no hanging references to our base element
+        auto& meta_element = *meta_manager.get(applied_stereotype.getID());
+        meta_manager.erase(meta_element);        
+    }
+
+    // call super
+    BaseManager::erase(el);
+}
+
+void UmlServer::release(AbstractElement& el) {
+    auto& uml_element = dynamic_cast<UmlManager::Implementation<Element>&>(el);
+    for (auto& applied_stereotype: uml_element.getAppliedStereotypes()) {
+        // get meta_manager from applied stereotype owning package
+        auto& meta_manager = m_meta_managers.at(applied_stereotype.getOwningPackage().id());
+        
+        // release stereotype data so no hanging bad memory is still in use
+        auto& meta_element = *meta_manager.get(applied_stereotype.getID());
+        meta_manager.release(meta_element);
+    }
+
+    // call super
+    BaseManager::erase(el);
 }

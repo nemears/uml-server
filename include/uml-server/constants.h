@@ -11,7 +11,7 @@ namespace UML {
     const EGM::ID unlimited_natural_type_id = EGM::ID::fromString("qlCO1PwnQkJ4kg7DLifFEs0OSv9e");
 
     // map of ids to functions that return to the corresponding set on a uml element
-    std::unordered_map<EGM::ID, std::function<EGM::AbstractSet&(UmlManager::Pointer<Element>)>> uml_meta_model_property_ids = {
+    const std::unordered_map<EGM::ID, std::function<EGM::AbstractSet&(UmlManager::Pointer<Element>)>> uml_meta_model_property_ids = {
         // Association
         { EGM::ID::fromString("d8zBcyATDRBFGVmH5iDnhcPK75Az"), [](UmlManager::Pointer<Element> el) -> EGM::AbstractSet& { return el->as<Association>().getMemberEnds(); }},
         { EGM::ID::fromString("5C0yj0wfSbiWvILuj8OS68&CqLJE"), [](UmlManager::Pointer<Element> el) -> EGM::AbstractSet& { return el->as<Association>().getNavigableOwnedEnds();}},

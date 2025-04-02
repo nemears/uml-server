@@ -44,18 +44,21 @@ namespace EGM {
 
 namespace UML {
 
-    class UmlServer;
-
     struct MetaElementSerializationPolicy : public EGM::YamlSerializationPolicy<EGM::TemplateTypeList<MetaElement>> {
         protected:
             MetaManager* m_meta_manager;
-            EGM::AbstractElementPtr parseNode(YAML::Node node) override;  
-            std::string emitIndividual(EGM::AbstractElement& el) override;
+            EGM::AbstractElementPtr parseNode(YAML::Node node) override;
+            EGM::AbstractElementPtr parse_meta_element_node(YAML::Node node, std::function<EGM::AbstractElementPtr(std::size_t)> f);
+            void emitIndividual(YAML::Emitter& emitter, EGM::AbstractElement& el) override;
+            std::string emitIndividual(EGM::AbstractElement& el) override { 
+                return EGM::YamlSerializationPolicy<EGM::TemplateTypeList<MetaElement>>::emitIndividual(el);
+            }
     };
 
     class MetaManager : public EGM::Manager<EGM::TemplateTypeList<MetaElement>, EGM::SerializedStoragePolicy<MetaElementSerializationPolicy, EGM::FilePersistencePolicy>> {
         friend struct MetaElementSerializationPolicy;
-        friend class UmlServer;
+        template <class>
+        friend class GenerativeManager;
         private:
             using BaseManager = EGM::Manager<EGM::TemplateTypeList<MetaElement>, EGM::SerializedStoragePolicy<MetaElementSerializationPolicy, EGM::FilePersistencePolicy>>;
             using MetaElementPtr = BaseManager::Pointer<MetaElement>;
@@ -70,6 +73,7 @@ namespace UML {
 
         public:
             MetaManager(UmlManager::Implementation<Package>& abstraction_root);
+            std::size_t get_type_by_name(std::string name) { return m_name_to_type.at(name); }
         private:
             // create_meta_element
             // element_type - element_type of meta_element
@@ -108,9 +112,15 @@ namespace UML {
                 return emitIndividual(el);
             }
 
+            void emit_meta_element(YAML::Emitter& emitter, MetaManager::Implementation<MetaElement>& el) {
+                emitIndividual(emitter, el);
+            }
+
             MetaElementPtr parse_node(YAML::Node node) {
                 return parseNode(node);
             }
+
+            MetaElementPtr parse_stereotype_node(UmlManager::Implementation<Element>& el, YAML::Node node);
 
             void dump_all_data(YAML::Emitter& emitter) {
                 emitter << YAML::BeginSeq;

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "uml/uml-stable.h"
-#include "metaManager.h"
+#include "generativeManager.h"
+
 #include <atomic>
 #include <iostream>
 #include <mutex>
@@ -25,20 +25,11 @@ namespace std {
 
 namespace UML {
 
-    class UmlServer;
-
-    struct UmlServerSerializationPolicy : public EGM::JsonSerializationPolicy<UmlTypes> {
-        std::vector<EGM::ManagedPtr<EGM::AbstractElement>> parseWhole(std::string data) override;
-        std::string emitWhole(EGM::AbstractElement& el) override;
-        protected:
-            UmlServer* m_uml_server = 0;
-    };
-
-    class UmlServer : public EGM::Manager<UmlTypes, EGM::SerializedStoragePolicy<UmlServerSerializationPolicy, EGM::FilePersistencePolicy>> {
+    class UmlServer : public GenerativeManager<EGM::Manager<UmlTypes, EGM::SerializedStoragePolicy<GenerativeSerializationPolicy, EGM::FilePersistencePolicy>>> {
 
         private:
             friend struct UmlServerSerializationPolicy;
-            using BaseManager = EGM::Manager<UmlTypes, EGM::SerializedStoragePolicy<UmlServerSerializationPolicy, EGM::FilePersistencePolicy>>; 
+            using BaseManager = GenerativeManager<EGM::Manager<UmlTypes, EGM::SerializedStoragePolicy<GenerativeSerializationPolicy, EGM::FilePersistencePolicy>>>;
 
             struct ClientInfo {
                 socketType socket;
@@ -112,8 +103,6 @@ namespace UML {
                 static void fill(UmlServer&) {}
             };
 
-            std::unordered_map<EGM::ID, MetaManager> m_meta_managers;
-
         protected:
             void closeClientConnections(ClientInfo& client);
         public:
@@ -135,7 +124,5 @@ namespace UML {
             int waitTillShutDown();
             void setRoot(EGM::AbstractElementPtr el) override;
             void setRoot(UmlManager::Implementation<Element>& el);
-            void erase(EGM::AbstractElement& el) override;
-            void release(EGM::AbstractElement& el) override;
     };
 }

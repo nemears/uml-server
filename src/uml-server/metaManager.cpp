@@ -10,8 +10,7 @@ UmlManager::Pointer<UML::Element> get_element_from_uml_manager(AbstractElementPt
     return dynamic_cast<UML::MetaManager&>(meta_ptr->getManager()).getUmlManager().get(id); 
 }
 }
-
-AbstractElementPtr MetaElementSerializationPolicy::parseNode(YAML::Node node) {
+AbstractElementPtr MetaElementSerializationPolicy::parse_meta_element_node(YAML::Node node, std::function<EGM::AbstractElementPtr(std::size_t)> f) {
     auto it = node.begin();
     while (it != node.end()) {
         const auto keyNode = it->first;
@@ -19,7 +18,7 @@ AbstractElementPtr MetaElementSerializationPolicy::parseNode(YAML::Node node) {
         if (valNode.IsMap()) {
             // look up key
             try {
-                auto el = m_meta_manager->create(m_meta_manager->m_name_to_type.at(keyNode.as<std::string>()));
+                auto el = f(m_meta_manager->m_name_to_type.at(keyNode.as<std::string>()));
                 if (valNode["id"] && valNode["id"].IsScalar()) {
                     el->setID(EGM::ID::fromString(valNode["id"].template as<std::string>()));
                 }
@@ -37,14 +36,21 @@ AbstractElementPtr MetaElementSerializationPolicy::parseNode(YAML::Node node) {
     throw EGM::ManagerStateException("could not find property type to parse! line number " + std::to_string(node.Mark().line));
 }
 
-std::string MetaElementSerializationPolicy::emitIndividual(EGM::AbstractElement& el) {
+AbstractElementPtr MetaElementSerializationPolicy::parseNode(YAML::Node node) {
+    return parse_meta_element_node(node, [this](std::size_t element_type) -> AbstractElementPtr { return m_meta_manager->create(element_type); });
+}
+
+
+
+MetaManager::MetaElementPtr MetaManager::parse_stereotype_node(UmlManager::Implementation<Element>& el, YAML::Node node) {
+    return parse_meta_element_node(node, [this, &el](std::size_t element_type) -> AbstractElementPtr { return m_meta_manager->apply(el, element_type); });
+}
+
+
+void MetaElementSerializationPolicy::emitIndividual(YAML::Emitter& emitter, EGM::AbstractElement& el) {
     auto serialization_policy = m_serializationByType.at(0);
 
     MetaManager::Pointer<MetaElement> meta_el = AbstractElementPtr(&el);
-
-    YAML::Emitter emitter;
-    primeEmitter(emitter);
-    emitter << YAML::BeginMap;
 
     // emit scope
     serialization_policy->emitScope(emitter, &el);
@@ -55,9 +61,6 @@ std::string MetaElementSerializationPolicy::emitIndividual(EGM::AbstractElement&
     emitter << YAML::Key << "id" << YAML::Value << meta_el.id().string();
     serialization_policy->emitBody(emitter, &el);
     emitter << YAML::EndMap;
-    emitter << YAML::EndMap;
-
-    return emitter.c_str();
 }
 
 MetaManager::MetaManager(UmlManager::Implementation<Package>& abstraction_root) : 

@@ -191,12 +191,9 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             sendMessage(info, msg);
             log(msg);
         } else {
+            // generate the meta manager, send id of manager back
             ID generation_root_id = ID::fromString(node["generate"].as<std::string>());
-            ID manager_id = ID::randomID();
-            MetaManager& created_manager = m_meta_managers.emplace(manager_id, get(generation_root_id)->as<Package>()).first->second;
-            // set storage root to correspond to manager id
-            // this helps the server quickly identify what manager an instance is part of
-            created_manager.m_storage_root->setID(manager_id);
+            ID manager_id = generate(get(generation_root_id)->as<Package>());
 
             std::ostringstream oss;
             oss << "{\"manager\":\"" << manager_id.string() << "\"}";
@@ -302,7 +299,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                         return;
                     }
 
-                    auto element_type = meta_manager.m_name_to_type.at(postNode["type"].as<std::string>());
+                    auto element_type = meta_manager.get_type_by_name(postNode["type"].as<std::string>());
 
                     auto applying_element_node = postNode["applying_element"];
                     if (applying_element_node) {
@@ -766,7 +763,6 @@ void UmlServer::log(std::string msg) {
 }
 
 UmlServer::UmlServer(int port, bool deferStart) {
-    m_uml_server = this;
     fill_names_to_element_type<UmlTypes>::fill(*this);    
     m_port = port;
     if (!deferStart) {
@@ -1017,35 +1013,4 @@ void UmlServer::setRoot(AbstractElementPtr el) {
 
 void UmlServer::setRoot(UmlServer::Implementation<Element>& el) {
     setRoot(&el);
-}
-
-void UmlServer::erase(AbstractElement& el) {
-    // make sure any stereotype data is freed first
-    auto& uml_element = dynamic_cast<UmlManager::Implementation<Element>&>(el);
-    for (auto& applied_stereotype : uml_element.getAppliedStereotypes()) {
-        // get meta_manager from applied_stereotype owning package (will be same id as manager)
-        auto& meta_manager = m_meta_managers.at(applied_stereotype.getOwningPackage().id());
-
-        // erase stereotype data so no hanging references to our base element
-        auto& meta_element = *meta_manager.get(applied_stereotype.getID());
-        meta_manager.erase(meta_element);        
-    }
-
-    // call super
-    BaseManager::erase(el);
-}
-
-void UmlServer::release(AbstractElement& el) {
-    auto& uml_element = dynamic_cast<UmlManager::Implementation<Element>&>(el);
-    for (auto& applied_stereotype: uml_element.getAppliedStereotypes()) {
-        // get meta_manager from applied stereotype owning package
-        auto& meta_manager = m_meta_managers.at(applied_stereotype.getOwningPackage().id());
-        
-        // release stereotype data so no hanging bad memory is still in use
-        auto& meta_element = *meta_manager.get(applied_stereotype.getID());
-        meta_manager.release(meta_element);
-    }
-
-    // call super
-    BaseManager::erase(el);
 }

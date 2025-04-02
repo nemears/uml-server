@@ -4,7 +4,7 @@ include_dir = include_directories('include')
 egm = dependency('egm')
 uml_cpp = dependency('uml-cpp')
 uml_server_lib = library('uml-server-protocol', 
-    'src/uml-server/umlServer.cpp', 'src/uml-server/serverPersistencePolicy.cpp', 'src/uml-server/umlClient.cpp', 'src/uml-server/metaManager.cpp', 'src/uml-server/umlServerSerializationPolicy.cpp',
+    'src/uml-server/umlServer.cpp', 'src/uml-server/serverPersistencePolicy.cpp', 'src/uml-server/umlClient.cpp', 'src/uml-server/metaManager.cpp', 'src/uml-server/generativeSerializationPolicy.cpp',
     include_directories : include_dir, 
     dependencies: [egm, uml_cpp, yaml_cpp]
 )
@@ -19,7 +19,9 @@ if (get_option('serverTests'))
         'src/test/umlServerTest.cpp', 'src/test/metaManagerTest.cpp',
         link_with : uml_server_lib, 
         include_directories : include_dir, 
-        dependencies : [egm, gtest, uml_cpp, yaml_cpp]
+        dependencies : [egm, gtest, uml_cpp, yaml_cpp],
+        cpp_args: ['-fsanitize=address', '-fno-omit-frame-pointer'],
+        link_args: '-fsanitize=address'
     )
     test('uml-server-tests', uml_server_tests)
 endif

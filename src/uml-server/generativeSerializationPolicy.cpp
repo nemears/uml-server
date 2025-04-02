@@ -1,8 +1,8 @@
-#include "uml-server/umlServer.h"
+#include "uml-server/generativeManager.h"
 
 using namespace std;
-using namespace EGM;
 using namespace UML;
+using namespace EGM;
 
 static ID process_id_node(YAML::Node node) {
     string id_line = to_string(node.Mark().line);
@@ -21,7 +21,7 @@ static ID process_id_node(YAML::Node node) {
     return ID::fromString(node.as<std::string>());
 }
 
-vector<ManagedPtr<AbstractElement>> UmlServerSerializationPolicy::parseWhole(std::string data) {
+vector<ManagedPtr<AbstractElement>> GenerativeSerializationPolicy::parseWhole(std::string data) {
     disablePolicies();
     vector<YAML::Node> json_nodes = YAML::LoadAll(data);
     if (json_nodes.empty()) {
@@ -72,7 +72,7 @@ vector<ManagedPtr<AbstractElement>> UmlServerSerializationPolicy::parseWhole(std
         for (auto meta_manager_node : meta_managers_nodes) {
             ID uml_generation_root_id = process_id_node(meta_manager_node["uml_root"]);
             ID meta_manager_id = process_id_node(meta_manager_node["id"]);
-            MetaManager& meta_manager = m_uml_server->m_meta_managers.emplace(meta_manager_id, m_uml_server->get(uml_generation_root_id)->as<Package>()).first->second;
+            MetaManager& meta_manager = m_generative_manager->m_meta_managers.emplace(meta_manager_id, ManagedPtr<BaseElement>(m_generative_manager->abstractGet(uml_generation_root_id))->as<Package>()).first->second;
             
             auto data_node = meta_manager_node["data"];
             string data_node_line = to_string(data_node.Mark().line);
@@ -93,14 +93,14 @@ vector<ManagedPtr<AbstractElement>> UmlServerSerializationPolicy::parseWhole(std
     return vector<AbstractElementPtr> { parsed_uml_root };
 }
 
-string UmlServerSerializationPolicy::emitWhole(AbstractElement& el) {
+string GenerativeSerializationPolicy::emitWhole(AbstractElement& el) {
     YAML::Emitter emitter;
     emitter << YAML::BeginMap;
     emitter << YAML::Key << "uml" << YAML::Value;
     m_serializationByType.at(el.getElementType())->emitComposite(emitter, AbstractElementPtr(&el));
     emitter << YAML::Key << "meta_managers" << YAML::Value;
     emitter << YAML::BeginSeq;
-    for (auto& meta_manager_pair : m_uml_server->m_meta_managers) {
+    for (auto& meta_manager_pair : m_generative_manager->m_meta_managers) {
         ID manager_id = meta_manager_pair.first;
         MetaManager& meta_manager = meta_manager_pair.second;
         emitter << YAML::Key << "uml_root" << YAML::Value << meta_manager.get_generation_root().id().string();
@@ -112,4 +112,40 @@ string UmlServerSerializationPolicy::emitWhole(AbstractElement& el) {
     emitter << YAML::EndMap;
 
     return emitter.c_str();
+}
+
+void GenerativeSerializationPolicy::emit_set(YAML::Emitter& emitter, std::string set_name, AbstractSet& set) {
+    if (set_name == "appliedStereotypes") {
+        emitter << YAML::Key << set_name << YAML::Value << YAML::BeginSeq;
+        for (auto it = set.beginPtr(); *it != *set.endPtr(); it->next()) {
+            UmlManager::Pointer<InstanceSpecification> stereotype_instance = it->getCurr();
+            MetaManager& meta_manager = m_generative_manager->m_meta_managers.at(stereotype_instance->getOwningPackage().id());
+            emitter << YAML::BeginMap;
+            emitter << YAML::Key << "manager" << YAML::Value << stereotype_instance->getOwningPackage().id().string();
+            emitter << YAML::Key << "data" << YAML::Value << YAML::BeginMap;
+            MetaManager::Implementation<MetaElement>& meta_element = meta_manager.get(stereotype_instance.id())->as<MetaElement>();
+            meta_manager.emit_meta_element(emitter, meta_element);
+            emitter << YAML::EndMap;
+            emitter << YAML::EndMap;
+        }
+        emitter << YAML::EndSeq;
+    } else {
+        EGM::YamlSerializationPolicy<UmlTypes>::emit_set(emitter, set_name, set);
+    }
+}
+
+void GenerativeSerializationPolicy::parse_set(YAML::Node node, std::string set_name, AbstractSet& set) {
+    if (set_name == "appliedStereotypes") {
+        if (node["appliedStereotypes"]) {
+            auto stereotype_node = node["appliedStereotypes"];
+
+            // TODO more checking for better errors
+
+            MetaManager& meta_manager = m_generative_manager->m_meta_managers.at(ID::fromString(stereotype_node["manager"].as<std::string>()));
+            // TODO below won't do everything we want, parse_node doesn't work for stereotypes
+            meta_manager.parse_stereotype_node(dynamic_cast<UmlManager::Implementation<Element>&>(set.getOwner()), stereotype_node["data"]);
+        }
+    } else {
+        EGM::YamlSerializationPolicy<UmlTypes>::parse_set(node, set_name, set);
+    }
 }

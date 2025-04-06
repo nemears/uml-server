@@ -7,7 +7,7 @@ using namespace EGM;
 namespace UML {
 UmlManager::Pointer<UML::Element> get_element_from_uml_manager(AbstractElementPtr ptr, ID id) {
     MetaManager::Pointer<MetaElement> meta_ptr = ptr;
-    return dynamic_cast<UML::MetaManager&>(meta_ptr->getManager()).getUmlManager().get(id); 
+    return dynamic_cast<UML::MetaManager&>(meta_ptr->getManager()).getUmlManager().abstractGet(id); 
 }
 }
 AbstractElementPtr MetaElementSerializationPolicy::parse_meta_element_node(YAML::Node node, std::function<EGM::AbstractElementPtr(std::size_t)> f) {
@@ -64,7 +64,7 @@ void MetaElementSerializationPolicy::emitIndividual(YAML::Emitter& emitter, EGM:
 }
 
 MetaManager::MetaManager(UmlManager::Implementation<Package>& abstraction_root) : 
-    m_uml_manager(dynamic_cast<UmlManager&>(abstraction_root.getManager()))
+    m_uml_manager(abstraction_root.getManager())
 {
     
     // link to serialization policy
@@ -122,16 +122,80 @@ MetaManager::MetaManager(UmlManager::Implementation<Package>& abstraction_root) 
     }
 }
 
+using MetaElementImpl = MetaManager::Implementation<MetaElement>;
+
 template <template <class> class Literal>
-void create_literal_slot(UmlManager& uml_manager, UmlManager::Pointer<Property> property, UmlManager::Pointer<InstanceSpecification> inst, UmlManager::Pointer<Literal> default_value) {
+void create_literal_slot(ManagerTypes<UmlTypes>& uml_manager, UmlManager::Pointer<Property> property, UmlManager::Pointer<InstanceSpecification> inst) {
     auto slot = uml_manager.create<Slot>();
     slot->setDefiningFeature(property);
+    auto default_value = property->getDefaultValue();
     if (default_value && default_value->template is<Literal>()) {
         auto slot_value = uml_manager.create<Literal>();
         slot_value->setValue(default_value->template as<Literal>().getValue());
         slot->getValues().add(slot_value);
     }
     inst->getSlots().add(slot); 
+}
+
+enum class PrimitivePolicyType {
+    BOOLEAN,
+    INTEGER,
+    NULL_TYPE,
+    REAL,
+    STRING,
+    UNLIMITED_NATURAL
+};
+
+struct AbstractPrimitivePolicy {
+    UmlManager::Pointer<Property> defining_feature;
+    virtual PrimitivePolicyType primitive() const = 0;
+};
+
+void MetaManager::create_uml_representation(MetaManager::Pointer<MetaElement> meta_element) {
+    auto element_instance = m_uml_manager.create<InstanceSpecification>();
+    meta_element->uml_representation = element_instance;
+    element_instance->setID(meta_element.id());
+    element_instance->getClassifiers().add(meta_element->meta_type);
+    m_storage_root->getPackagedElements().add(element_instance);
+
+    if (meta_element->applying_element) {
+        meta_element->applying_element->getAppliedStereotypes().add(element_instance);
+    }
+
+    for (auto& set_pair : meta_element->sets) {
+        // set up slot
+        auto slot = m_uml_manager.create<Slot>();
+        slot->setDefiningFeature(meta_element->meta_type->getInheritedMembers().get(set_pair.first));
+
+        auto& set_policy = dynamic_cast<MetaElementSetPolicy<MetaManager::GenBaseHierarchy<MetaElement>>&>(*set_pair.second);
+        set_policy.uml_manager = &m_uml_manager;
+        set_policy.uml_slot = slot;
+
+        // TODO default value
+
+        element_instance->getSlots().add(slot);
+    }
+
+    for (auto& data_pair : meta_element->data) {
+        AbstractPrimitivePolicy& primitive_policy = dynamic_cast<AbstractPrimitivePolicy&>(*data_pair.second);
+        auto property = primitive_policy.defining_feature;
+        switch (primitive_policy.primitive()) {
+            case PrimitivePolicyType::BOOLEAN:
+                create_literal_slot<LiteralBoolean>(m_uml_manager, property, element_instance);
+                break;
+            case PrimitivePolicyType::INTEGER:
+                create_literal_slot<LiteralInteger>(m_uml_manager, property, element_instance);
+                break;
+            case PrimitivePolicyType::STRING: 
+                create_literal_slot<LiteralString>(m_uml_manager, property, element_instance);
+                break;
+            case PrimitivePolicyType::REAL:
+                create_literal_slot<LiteralReal>(m_uml_manager, property, element_instance);
+                break;
+            default:
+                throw ManagerStateException("Could not process primitive type!");
+        }
+    }
 }
 
 // create_meta_element
@@ -145,25 +209,23 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
     
     // get representing classifier
     auto meta_type = m_uml_types.at(element_type);
+    meta_element->meta_type = meta_type;
 
     // set name
     meta_element->name = meta_type->getName();
+
+    // mark applying element (stereotyped element) if exists
+    meta_element->applying_element = applying_element;
 
     // set bases
     for (auto base : meta_type->getGenerals().ptrs()) {
         meta_element->m_bases.push_back(m_id_to_type.at(base.id()));
     }
-    
-    // add to UmlManager
-    auto element_instance = m_uml_manager.create<InstanceSpecification>();
-    element_instance->setID(meta_element.id());
-    element_instance->getClassifiers().add(meta_type);
-    m_storage_root->getPackagedElements().add(element_instance);
 
     // reusable lambda for creating a property corresponding to a set
     // returns ptr to set
     std::function<EGM::AbstractSet*(UmlManager::Pointer<Property>)> create_property_set;
-    create_property_set = [meta_element, element_instance, applying_element, this, &create_property_set](UmlManager::Pointer<Property> property) -> EGM::AbstractSet* {
+    create_property_set = [meta_element, applying_element, this, &create_property_set](UmlManager::Pointer<Property> property) -> EGM::AbstractSet* {
         // check if already created
         auto property_sets_it = meta_element->sets.find(property.id());
         if (property_sets_it != meta_element->sets.end()) {
@@ -188,12 +250,12 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
 
         if (upper_value && *upper_value == 1) {
             // singleton
-            created_set = &*meta_element->sets.emplace(property.id(), std::make_unique<EGM::Singleton<MetaElement, MetaElementImpl>>(&*meta_element)).first->second;
+            created_set = &*meta_element->sets.emplace(property.id(), std::make_unique<MetaElementImpl::MetaElementSingleton>(&*meta_element)).first->second;
         } else if (property->isOrdered()) {
-            created_set = &*meta_element->sets.emplace(property.id(), std::make_unique<EGM::OrderedSet<MetaElement, MetaElementImpl>>(&*meta_element)).first->second;
+            created_set = &*meta_element->sets.emplace(property.id(), std::make_unique<MetaElementImpl::MetaElementOrderedSet>(&*meta_element)).first->second;
         } else {
             // default to set
-            created_set = &*meta_element->sets.emplace(property.id(), std::make_unique<EGM::Set<MetaElement, MetaElementImpl>>(&*meta_element)).first->second;
+            created_set = &*meta_element->sets.emplace(property.id(), std::make_unique<MetaElementImpl::MetaElementSet>(&*meta_element)).first->second;
         }
 
         for (auto subsetted_property : property->getSubsettedProperties().ptrs()) {
@@ -205,14 +267,7 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
             auto redefined_set = create_property_set(redefined_property);
             created_set->redefines(*redefined_set);
         }
-
-        // set up slot
-        auto slot = m_uml_manager.create<Slot>();
-        slot->setDefiningFeature(property);
-
-        // TODO default value
-
-        element_instance->getSlots().add(slot);
+        
         return created_set;
     };
 
@@ -239,7 +294,7 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
                     initial_value = default_value->as<LiteralBoolean>().getValue();
                 }
 
-                struct BooleanDataPolicy : public EGM::AbstractDataPolicy {
+                struct BooleanDataPolicy : public EGM::AbstractDataPolicy , public AbstractPrimitivePolicy {
                     bool m_val;
                     BooleanDataPolicy(bool val) : m_val(val) {}
                     std::string getData() override {
@@ -258,12 +313,12 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
                             throw EGM::ManagerStateException("could not determine boolean value from string");
                         }
                     }
+                    PrimitivePolicyType primitive() const override { return PrimitivePolicyType::BOOLEAN; }
                 };
 
-                meta_element->data.emplace(property.id(), std::make_unique<BooleanDataPolicy>(initial_value));
-
-                // add to uml_manager
-                create_literal_slot<LiteralBoolean>(m_uml_manager, property, element_instance, default_value);
+                auto data_policy = std::make_unique<BooleanDataPolicy>(initial_value);
+                data_policy->defining_feature = property;
+                meta_element->data.emplace(property.id(), std::move(data_policy));
             } else if (type_id == integer_type_id) {
                 int initial_value = 0;
                 auto default_value = property->getDefaultValue();
@@ -271,7 +326,7 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
                     initial_value = default_value->as<LiteralInteger>().getValue();
                 }
 
-                struct IntegerDataPolicy : public EGM::AbstractDataPolicy {
+                struct IntegerDataPolicy : public EGM::AbstractDataPolicy , public AbstractPrimitivePolicy {
                     int m_val = 0;
                     IntegerDataPolicy(int val) : m_val(val) {}
                     std::string getData() override {
@@ -284,12 +339,12 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
                             throw EGM::ManagerStateException("invalid integer");
                         }
                     }
+                    PrimitivePolicyType primitive() const override { return PrimitivePolicyType::INTEGER; }
                 };
 
-                meta_element->data.emplace(property.id(), std::make_unique<IntegerDataPolicy>(initial_value));
-
-                // add to uml_manager
-                create_literal_slot<LiteralInteger>(m_uml_manager, property, element_instance, default_value);
+                auto data_policy = std::make_unique<IntegerDataPolicy>(initial_value);
+                data_policy->defining_feature = property;
+                meta_element->data.emplace(property.id(), std::move(data_policy));
             } else if (type_id == real_type_id) {
                 double initial_value = 0;
                 auto default_value = property->getDefaultValue();
@@ -297,7 +352,7 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
                     initial_value = default_value->as<LiteralReal>().getValue();
                 }
 
-                struct RealDataPolicy : public EGM::AbstractDataPolicy {
+                struct RealDataPolicy : public EGM::AbstractDataPolicy , public AbstractPrimitivePolicy {
                     double m_val = 0;
                     RealDataPolicy(double val) : m_val(val) {}
                     std::string getData() override {
@@ -307,10 +362,12 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
                         char* rest {};
                         m_val = std::strtod(data.c_str(), &rest);
                     }
+                    PrimitivePolicyType primitive() const override { return PrimitivePolicyType::REAL; }
                 };
 
-                meta_element->data.emplace(property.id(), std::make_unique<RealDataPolicy>(initial_value));
-                create_literal_slot<LiteralReal>(m_uml_manager, property, element_instance, default_value);
+                auto data_policy = std::make_unique<RealDataPolicy>(initial_value);
+                data_policy->defining_feature = property;
+                meta_element->data.emplace(property.id(), std::move(data_policy));
             } else if (type_id == string_type_id) {
                 std::string initial_value = "";
                 auto default_value = property->getDefaultValue();
@@ -318,7 +375,7 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
                     initial_value = default_value->as<LiteralString>().getValue();
                 }
 
-                struct StringDataPolicy : public EGM::AbstractDataPolicy {
+                struct StringDataPolicy : public EGM::AbstractDataPolicy , public AbstractPrimitivePolicy {
                     std::string m_val = "";
                     StringDataPolicy(std::string val) : m_val(val) {}
                     std::string getData() override {
@@ -327,10 +384,12 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
                     void setData(std::string data) override {
                         m_val = data;
                     }
+                    PrimitivePolicyType primitive() const override { return PrimitivePolicyType::STRING; }
                 };
 
-                meta_element->data.emplace(property.id(), std::make_unique<StringDataPolicy>(initial_value));
-                create_literal_slot<LiteralString>(m_uml_manager, property, element_instance, default_value);
+                auto data_policy = std::make_unique<StringDataPolicy>(initial_value);
+                data_policy->defining_feature = property;
+                meta_element->data.emplace(property.id(), std::move(data_policy));
             } else if (type_id == unlimited_natural_type_id) {
                 throw EGM::ManagerStateException("TODO Unlimited Natural");
             } else {
@@ -342,6 +401,8 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
             queue.push_back(base);
         }
     }
-    
+   
+    create_uml_representation(meta_element); 
+
     return meta_element; 
 }

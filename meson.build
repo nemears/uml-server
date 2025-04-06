@@ -16,7 +16,7 @@ executable('uml-server',
 if (get_option('serverTests'))
     gtest = dependency('gtest', main : true, required : false)
     uml_server_tests = executable('uml-server-tests', 
-        'src/test/umlServerTest.cpp', 'src/test/metaManagerTest.cpp',
+        'src/test/umlServerTest.cpp', 'src/test/metaManagerTest.cpp', 'src/test/generativeManagerTest.cpp',
         link_with : uml_server_lib, 
         include_directories : include_dir, 
         dependencies : [egm, gtest, uml_cpp, yaml_cpp],

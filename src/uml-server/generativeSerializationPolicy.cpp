@@ -115,7 +115,7 @@ string GenerativeSerializationPolicy::emitWhole(AbstractElement& el) {
 }
 
 void GenerativeSerializationPolicy::emit_set(YAML::Emitter& emitter, std::string set_name, AbstractSet& set) {
-    if (set_name == "appliedStereotypes") {
+    if (set_name == "appliedStereotypes" && !set.empty()) {
         emitter << YAML::Key << set_name << YAML::Value << YAML::BeginSeq;
         for (auto it = set.beginPtr(); *it != *set.endPtr(); it->next()) {
             UmlManager::Pointer<InstanceSpecification> stereotype_instance = it->getCurr();
@@ -136,14 +136,41 @@ void GenerativeSerializationPolicy::emit_set(YAML::Emitter& emitter, std::string
 
 void GenerativeSerializationPolicy::parse_set(YAML::Node node, std::string set_name, AbstractSet& set) {
     if (set_name == "appliedStereotypes") {
-        if (node["appliedStereotypes"]) {
-            auto stereotype_node = node["appliedStereotypes"];
+        auto stereotype_node = node["appliedStereotypes"];
+        if (stereotype_node) {
 
-            // TODO more checking for better errors
+            if (!stereotype_node.IsSequence()) {
+                throw ManagerStateException("applied stereotypes must be set! line: " + std::to_string(stereotype_node.Mark().line));
+            }
 
-            MetaManager& meta_manager = m_generative_manager->m_meta_managers.at(ID::fromString(stereotype_node["manager"].as<std::string>()));
-            // TODO below won't do everything we want, parse_node doesn't work for stereotypes
-            meta_manager.parse_stereotype_node(dynamic_cast<UmlManager::Implementation<Element>&>(set.getOwner()), stereotype_node["data"]);
+            for (auto applied_stereotype_node : stereotype_node) {
+
+                auto manager_node = applied_stereotype_node["manager"];
+                if (!manager_node) {
+                    throw ManagerStateException("no manager given to stereotype_data! line: " + std::to_string(applied_stereotype_node.Mark().line)); 
+                }
+
+                auto manager_string = manager_node.as<std::string>();
+                if (!ID::isValid(manager_string)) {
+                    throw ManagerStateException("no valid id for manager given to stereotype_data! line: " + std::to_string(applied_stereotype_node.Mark().line)); 
+                }
+
+                auto meta_manager_id  = ID::fromString(manager_string);
+                auto& meta_manager = m_generative_manager->m_meta_managers.at(meta_manager_id);
+
+                // process data
+                auto data_node = applied_stereotype_node["data"];
+                if (!data_node) {
+                    throw ManagerStateException("no data given for stereotype data! line: " + std::to_string(applied_stereotype_node.Mark().line));
+                }
+
+                if (!data_node.IsMap()) {
+                    throw ManagerStateException("improper node for data given for stereotype data! line: " + std::to_string(data_node.Mark().line));
+                }
+
+                // parse data
+                auto stereotype_data_element = meta_manager.parse_stereotype_node(dynamic_cast<UmlManager::Implementation<Element>&>(set.getOwner()), data_node);            
+            }
         }
     } else {
         EGM::YamlSerializationPolicy<UmlTypes>::parse_set(node, set_name, set);

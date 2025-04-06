@@ -3,7 +3,10 @@
 #include "uml/uml-stable.h"
 
 namespace UML {
-    
+
+    template <class>
+    struct MetaElementSetPolicy;
+
     template <class ManagerPolicy>
     struct MetaElement : public ManagerPolicy {
         using Info = EGM::TypeInfo<MetaElement>;
@@ -12,16 +15,67 @@ namespace UML {
         std::unordered_map<EGM::ID, std::unique_ptr<EGM::AbstractDataPolicy>> data;
         std::vector<std::size_t> m_bases;
         std::string name = "";
+        UmlManager::Pointer<InstanceSpecification> uml_representation;
+        UmlManager::Pointer<Classifier> meta_type;
+        UmlManager::Pointer<Element> applying_element;
+        using MetaElementSet = EGM::Set<MetaElement, MetaElement, MetaElementSetPolicy<ManagerPolicy>>; 
+        using MetaElementOrderedSet = EGM::OrderedSet<MetaElement, MetaElement, MetaElementSetPolicy<ManagerPolicy>>; 
+        using MetaElementSingleton = EGM::Singleton<MetaElement, MetaElement, MetaElementSetPolicy<ManagerPolicy>>; 
+        MetaElementSet& getSet(EGM::ID id) const {
+            return dynamic_cast<MetaElementSet&>(*sets.at(id));
+        }
+        MetaElementOrderedSet& getOrderedSet(EGM::ID id) const {
+            return dynamic_cast<MetaElementOrderedSet&>(*sets.at(id));
+        }
+        MetaElementSingleton& getSingleton(EGM::ID id) const {
+            return dynamic_cast<MetaElementSingleton&>(*sets.at(id));
+        }
         private:
             void init() {}
     };
 
-
     class MetaManager;
 
     UmlManager::Pointer<UML::Element> get_element_from_uml_manager(EGM::AbstractElementPtr ptr, EGM::ID id);
-}
 
+    // policy to put in all of the meta element sets, keeps track of
+    // the uml implementation as the set is added and removed from
+    template <class Policy>
+    struct MetaElementSetPolicy {
+        EGM::ManagerTypes<UmlTypes>* uml_manager;
+        UmlManager::Pointer<Slot> uml_slot;
+        using MetaElementImpl = typename Policy::manager::Implementation<MetaElement>;
+        void elementAdded(MetaElementImpl& el, MetaElementImpl& me) {
+            // update slot
+            auto inst_val = uml_manager->create<InstanceValue>();
+            inst_val->setInstance(uml_manager->abstractGet(el.getID()));
+            uml_slot->getValues().add(inst_val);
+        }
+        void elementRemoved(MetaElementImpl& el, MetaElementImpl& me) {
+            // update slot
+            UmlManager::Pointer<InstanceValue> val_match;
+            for (auto& val : uml_slot->getValues()) {
+                if (!val.is<InstanceValue>()) {
+                    continue;
+                }
+    
+                auto& inst_val = val.as<InstanceValue>();
+                auto inst = inst_val.getInstance();
+                if (inst.id() == el.getID()) {
+                    val_match = &inst_val;
+                    break;
+                }
+            }
+    
+            if (!val_match) {
+                throw EGM::ManagerStateException("could not find value that matches meta element set value that is being removed! contact dev!");
+            }
+    
+            // get rid of the value
+            uml_manager->erase(*val_match);
+        }
+    };
+}
 
 namespace EGM {
     template <>
@@ -63,7 +117,7 @@ namespace UML {
             using BaseManager = EGM::Manager<EGM::TemplateTypeList<MetaElement>, EGM::SerializedStoragePolicy<MetaElementSerializationPolicy, EGM::FilePersistencePolicy>>;
             using MetaElementPtr = BaseManager::Pointer<MetaElement>;
             using MetaElementImpl = BaseManager::Implementation<MetaElement>;
-            UmlManager& m_uml_manager;
+            EGM::ManagerTypes<UmlTypes>& m_uml_manager;
             UmlManager::Pointer<Package> m_storage_root;
             UmlManager::Pointer<Package> m_generation_root;
             std::unordered_map<std::size_t, UmlManager::Pointer<Classifier>> m_uml_types;
@@ -80,6 +134,7 @@ namespace UML {
             // applying_element - pointer (can be null) to element applying meta_element to as stereotype
             // return - the meta_element created as a ptr
             EGM::AbstractElementPtr create_meta_element(std::size_t element_type, UmlManager::Pointer<Element> applying_element);
+            void create_uml_representation(MetaManager::Pointer<MetaElement> meta_element);
         public:
 
             EGM::AbstractElementPtr create(std::size_t elementType) override {
@@ -90,17 +145,27 @@ namespace UML {
                 return create_meta_element(stereotype, &el);
             }
 
-            void reindex(EGM::ID oldID, EGM::ID newID) override {
-                BaseManager::reindex(oldID, newID);
+            EGM::AbstractElementPtr reindex(EGM::ID oldID, EGM::ID newID) override {
+                MetaElementPtr meta_element = BaseManager::reindex(oldID, newID);
                 m_meta_elements.erase(oldID);
                 m_meta_elements.insert(newID);
+
+                // delete old instance, and set it up again with new id
+                m_uml_manager.erase(*meta_element->uml_representation);
+                create_uml_representation(meta_element);
+                
+                return meta_element;
             }
 
             MetaElementPtr create(EGM::ID id) {
                 return create(m_id_to_type.at(id));
-            } 
+            }
 
-            UmlManager& getUmlManager() const {
+            MetaElementPtr apply(UmlManager::Implementation<Element>& el, EGM::ID stereotype_id) {
+                return apply(el, m_id_to_type.at(stereotype_id));
+            }
+
+            EGM::ManagerTypes<UmlTypes>& getUmlManager() const {
                 return m_uml_manager;
             }
 

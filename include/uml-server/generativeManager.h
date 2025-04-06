@@ -81,6 +81,14 @@ namespace UML {
                 // call super
                 BaseManager::release(el);
             }
+
+            std::string dump_individual(EGM::AbstractElement& el) {
+                return this->emitIndividual(el);
+            }
+
+            EGM::AbstractElementPtr parse_individual(std::string data) {
+                return this->parseIndividual(data);
+            }
     };
 
     using BasicGenerativeManager = GenerativeManager<EGM::Manager<UmlTypes, EGM::SerializedStoragePolicy<GenerativeSerializationPolicy, EGM::FilePersistencePolicy>>>;

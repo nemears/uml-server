@@ -7,6 +7,10 @@ namespace UML {
     template <class>
     struct MetaElementSetPolicy;
 
+    
+    template <class, template <template<class> class, class, class> class>
+    class MetaElementSet;
+
     template <class ManagerPolicy>
     struct MetaElement : public ManagerPolicy {
         using Info = EGM::TypeInfo<MetaElement>;
@@ -18,23 +22,108 @@ namespace UML {
         UmlManager::Pointer<InstanceSpecification> uml_representation;
         UmlManager::Pointer<Classifier> meta_type;
         UmlManager::Pointer<Element> applying_element;
-        using MetaElementSet = EGM::Set<MetaElement, MetaElement, MetaElementSetPolicy<ManagerPolicy>>; 
-        using MetaElementOrderedSet = EGM::OrderedSet<MetaElement, MetaElement, MetaElementSetPolicy<ManagerPolicy>>; 
-        using MetaElementSingleton = EGM::Singleton<MetaElement, MetaElement, MetaElementSetPolicy<ManagerPolicy>>; 
-        MetaElementSet& getSet(EGM::ID id) const {
-            return dynamic_cast<MetaElementSet&>(*sets.at(id));
+        using Set = MetaElementSet<ManagerPolicy, EGM::Set>;
+        using OrderedSet = MetaElementSet<ManagerPolicy, EGM::OrderedSet>;
+        using Singleton = MetaElementSet<ManagerPolicy, EGM::Singleton>;
+        Set& getSet(EGM::ID id) const {
+            return dynamic_cast<Set&>(*sets.at(id));
         }
-        MetaElementOrderedSet& getOrderedSet(EGM::ID id) const {
-            return dynamic_cast<MetaElementOrderedSet&>(*sets.at(id));
+        OrderedSet& getOrderedSet(EGM::ID id) const {
+            return dynamic_cast<OrderedSet&>(*sets.at(id));
         }
-        MetaElementSingleton& getSingleton(EGM::ID id) const {
-            return dynamic_cast<MetaElementSingleton&>(*sets.at(id));
+        Singleton& getSingleton(EGM::ID id) const {
+            return dynamic_cast<Singleton&>(*sets.at(id));
         }
         private:
             void init() {}
     };
 
     class MetaManager;
+
+    template <class Policy, template<template<class> class, class, class> class SetImpl>
+    class MetaElementSet : public SetImpl<MetaElement, MetaElement<Policy>, MetaElementSetPolicy<Policy>> {
+        protected:
+            void addToOpposite(EGM::AbstractElementPtr ptr) override {
+                EGM::ManagedPtr<MetaElement<Policy>> meta_ptr = ptr;
+                std::list<std::shared_ptr<EGM::SetStructure>> queue;
+                std::unordered_set<std::shared_ptr<EGM::SetStructure>> visited;
+                queue.push_back(this->m_structure->m_rootRedefinedSet);
+
+                auto add_to_opposite = [this, meta_ptr](EGM::AbstractSet& set) {
+                    if (dynamic_cast<MetaElementSetPolicy<Policy>*>(&set)) {
+                        this->run_add_opposite_for_set(set, *meta_ptr);
+                    } else {
+                        // it is a uml set
+                        this->run_add_opposite_for_set(set, *meta_ptr->applying_element);
+                    } 
+                };
+
+                while (!queue.empty()) {
+                    auto front = queue.front();
+                    queue.pop_front();
+                    if (visited.count(front)) {
+                        continue;
+                    }
+                    visited.insert(front);
+                    bool oppositeRan = false;
+                    if (ptr.loaded()) {
+                        if (!oppositeRan && this->check_opposite_enabled_for_set(front->m_set)) {
+                            add_to_opposite(front->m_set);
+                            oppositeRan = true;
+                        }
+                    }
+                    for (auto redefinedSet : front->m_redefinedSets) {
+                        if (ptr.loaded()) {
+                            if (!oppositeRan && this->check_opposite_enabled_for_set(redefinedSet->m_set)) {
+                                add_to_opposite(redefinedSet->m_set);
+                                oppositeRan = true;
+                            }
+                        }
+                    }
+                    if (!oppositeRan) {
+                        for (auto superSet : front->m_superSets) {
+                           queue.push_back(superSet);
+                        }
+                    }
+                }
+            }
+            void nonOppositeAdd(EGM::AbstractElementPtr ptr) override {
+                this->nonPolicyAdd(ptr);
+
+                EGM::ManagedPtr<MetaElement<Policy>> meta_ptr = ptr;
+                std::list<std::shared_ptr<EGM::SetStructure>> queue;
+                std::unordered_set<std::shared_ptr<EGM::SetStructure>> visited;
+                queue.push_back(this->m_structure->m_rootRedefinedSet);
+                
+                auto run_set_policies = [this, meta_ptr] (EGM::AbstractSet& set) {
+                    if (dynamic_cast<MetaElementSetPolicy<Policy>*>(&set)) {
+                        this->run_add_policy_for_set(set, *meta_ptr);
+                    } else {
+                        // it is a uml set
+                        this->run_add_policy_for_set(set, *meta_ptr->applying_element);
+                    }
+                };
+ 
+                while (!queue.empty()) {
+                    auto front = queue.front();
+                    queue.pop_front();
+                    if (visited.count(front)) {
+                        continue;
+                    }
+                    visited.insert(front);
+                    run_set_policies(front->m_set);
+                    for (auto redefinedSet : front->m_redefinedSets) {
+                        run_set_policies(redefinedSet->m_set);
+                    }
+                    for (auto superSet : front->m_superSets) {
+                        queue.push_back(superSet);
+                    }
+                } 
+            }
+            using BaseSet = SetImpl<MetaElement, MetaElement<Policy>, MetaElementSetPolicy<Policy>>;
+        public:
+            using BaseSet::BaseSet;
+    };
 
     UmlManager::Pointer<UML::Element> get_element_from_uml_manager(EGM::AbstractElementPtr ptr, EGM::ID id);
 

@@ -5,6 +5,21 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
+        "lastModified": 1744570866,
+        "narHash": "sha256-uPUPcZkeRsaGUU7wER+sMWxqrMMaWMvpyICcJ4zqpgo=",
+        "path": "/home/emory/Projects/egm",
+        "type": "path"
+      },
+      "original": {
+        "path": "/home/emory/Projects/egm",
+        "type": "path"
+      }
+    },
+    "egm_2": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_3"
+      },
+      "locked": {
         "lastModified": 1743961512,
         "narHash": "sha256-NaYIoC3KsnAC7z7GzVbDUSEtesD2jgbm1OZhAYX0ZrA=",
         "owner": "nemears",
@@ -41,6 +56,24 @@
         "systems": "systems_2"
       },
       "locked": {
+        "lastModified": 1726560853,
+        "narHash": "sha256-X6rJYSESBVr3hBoH0WbKE5KvhPU5bloyZ2L4K60/fPQ=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "c1dfcf08411b08f6b8615f7d8971a2bfa81d5e8a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "flake-utils_3": {
+      "inputs": {
+        "systems": "systems_3"
+      },
+      "locked": {
         "lastModified": 1731533236,
         "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
         "owner": "numtide",
@@ -72,6 +105,38 @@
     },
     "nixpkgs_2": {
       "locked": {
+        "lastModified": 1728376376,
+        "narHash": "sha256-pr+WiWHgAmaP/TBi3vOGMYX6s5U1trtByqOq37Sj3Hg=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "43aa0741864d25c970441c63d1899a612adee0e2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "release-24.05",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_3": {
+      "locked": {
+        "lastModified": 1743827369,
+        "narHash": "sha256-rpqepOZ8Eo1zg+KJeWoq1HAOgoMCDloqv5r2EAa9TSA=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "42a1c966be226125b48c384171c44c651c236c22",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_4": {
+      "locked": {
         "lastModified": 1735651292,
         "narHash": "sha256-YLbzcBtYo1/FEzFsB3AnM16qFc6fWPMIoOuSoDwvg9g=",
         "owner": "NixOS",
@@ -88,15 +153,13 @@
     },
     "root": {
       "inputs": {
-        "egm": [
-          "uml-cpp",
-          "egm"
-        ],
+        "egm": "egm",
         "flake-utils": "flake-utils",
         "nixpkgs": [
           "uml-cpp",
           "nixpkgs"
         ],
+        "uml-cafe-project-templates": "uml-cafe-project-templates",
         "uml-cpp": "uml-cpp"
       }
     },
@@ -130,11 +193,42 @@
         "type": "github"
       }
     },
-    "uml-cpp": {
+    "systems_3": {
+      "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
+      }
+    },
+    "uml-cafe-project-templates": {
       "inputs": {
-        "egm": "egm",
         "flake-utils": "flake-utils_2",
         "nixpkgs": "nixpkgs_2"
+      },
+      "locked": {
+        "lastModified": 1744060590,
+        "narHash": "sha256-JDD84ltXmXYgGXQUEYcvT47qCkAgO37YWAaRDV4pcH8=",
+        "path": "/home/emory/Projects/uml-cafe-project-templates",
+        "type": "path"
+      },
+      "original": {
+        "path": "/home/emory/Projects/uml-cafe-project-templates",
+        "type": "path"
+      }
+    },
+    "uml-cpp": {
+      "inputs": {
+        "egm": "egm_2",
+        "flake-utils": "flake-utils_3",
+        "nixpkgs": "nixpkgs_4"
       },
       "locked": {
         "lastModified": 1743961805,

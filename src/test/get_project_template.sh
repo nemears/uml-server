@@ -1,0 +1,2 @@
+#!/bin/sh
+echo $UML_CAFE_PROJECT_TEMPLATE

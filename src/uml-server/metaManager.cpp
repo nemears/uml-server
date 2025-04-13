@@ -250,12 +250,12 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
 
         if (upper_value && *upper_value == 1) {
             // singleton
-            created_set = &*meta_element->sets.emplace(property.id(), std::make_unique<MetaElementImpl::MetaElementSingleton>(&*meta_element)).first->second;
+            created_set = &*meta_element->sets.emplace(property.id(), std::make_unique<MetaElementImpl::Singleton>(&*meta_element)).first->second;
         } else if (property->isOrdered()) {
-            created_set = &*meta_element->sets.emplace(property.id(), std::make_unique<MetaElementImpl::MetaElementOrderedSet>(&*meta_element)).first->second;
+            created_set = &*meta_element->sets.emplace(property.id(), std::make_unique<MetaElementImpl::OrderedSet>(&*meta_element)).first->second;
         } else {
             // default to set
-            created_set = &*meta_element->sets.emplace(property.id(), std::make_unique<MetaElementImpl::MetaElementSet>(&*meta_element)).first->second;
+            created_set = &*meta_element->sets.emplace(property.id(), std::make_unique<MetaElementImpl::Set>(&*meta_element)).first->second;
         }
 
         for (auto subsetted_property : property->getSubsettedProperties().ptrs()) {

@@ -71,3 +71,38 @@ TEST_F(GenerativeManagerTest, basicParseStereotypedElement) {
     ASSERT_EQ(stereotype_data->getSet(foo_property.id()).size(), 1);
     ASSERT_EQ(stereotype_data->getSet(foo_property.id()).ids().front(), foo_inst.id());
 }
+
+TEST_F(GenerativeManagerTest, subsetUmlProperty) {
+    BasicGenerativeManager m;
+
+    // load uml-cafe because it holds most up to date uml profile
+    m.open(std::format("{}", PROJECT_TEMPLATE));
+
+    // create profile that subsets packagedElements
+    auto profile = m.create<Profile>();
+    auto squirell = m.create<Stereotype>();
+    auto nut = m.create<Stereotype>();
+    auto nut_property = m.create<Property>();
+    
+    profile->setName("squirell profile");
+    squirell->setName("Squirell");
+    nut->setName("Nut");
+    nut_property->setName("nuts");
+
+    squirell->getOwnedAttributes().add(nut_property);
+    nut_property->setType(nut);
+    nut_property->getSubsettedProperties().add(m.get(ID::fromString("F628ncQKADxo6FLtAlDOdlJfewLy"))); // subsets packagedElements
+    profile->getPackagedElements().add(squirell);
+    profile->getPackagedElements().add(nut);
+
+    ID meta_manager_id = m.generate(*profile);
+    auto& meta_manager = m.get_meta_manager(meta_manager_id);
+
+    auto squirell_inst = m.create<Package>();
+    auto squirell_data = meta_manager.apply(*squirell_inst, squirell.id());
+    auto nut_inst = m.create<Package>();
+    auto nut_data = meta_manager.apply(*nut_inst, nut.id());
+    squirell_data->getSet(nut_property.id()).add(nut_data);
+
+    ASSERT_EQ(squirell_inst->getPackagedElements().size(), 1);
+}

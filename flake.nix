@@ -5,10 +5,12 @@
         flake-utils.url = "github:numtide/flake-utils";
         uml-cpp.url = "github:nemears/uml-cpp";
         nixpkgs.follows = "uml-cpp/nixpkgs";
-        egm.follows = "uml-cpp/egm";
+        # egm.follows = "uml-cpp/egm";
+        egm.url = "path:/home/emory/Projects/egm";
+        uml-cafe-project-templates.url = "path:/home/emory/Projects/uml-cafe-project-templates";
     };
 
-    outputs = { self, nixpkgs, flake-utils, uml-cpp, egm }:
+    outputs = { self, nixpkgs, flake-utils, uml-cpp, egm, uml-cafe-project-templates }:
     flake-utils.lib.eachDefaultSystem
         (system:
             let 
@@ -28,32 +30,36 @@
                     cp -r $src/include/uml-server $out/include
                     '';
                 };
- 
+                project-templates = uml-cafe-project-templates.packages.${system}.default; 
+                project-templates-v0_1_0 = uml-cafe-project-templates.packages.${system}.uml-cafe-project-templates-v0_1_0;
             in
             {
                 devShells.default = pkgs.mkShell {
                     packages = with pkgs; [ 
-                    # build dependencies
-                    meson
-                    pkg-config
-                    ninja
+                      # build dependencies
+                      meson
+                      pkg-config
+                      ninja
 
-                    # dev dependencies
-                    yaml-cpp
-                    gtest
-                    # uml-cpp.outputs.packages.${system}.uml-cpp_0_4_2
-                    uml-cpp.outputs.packages.${system}.default
-                    egm.outputs.packages.${system}.default
+                      # dev dependencies
+                      yaml-cpp
+                      gtest
+                      # uml-cpp.outputs.packages.${system}.uml-cpp_0_4_2
+                      uml-cpp.outputs.packages.${system}.default
+                      egm.outputs.packages.${system}.default
 
-                    # debug dependencies
-                    gdb
-                    valgrind
+                      # debug dependencies
+                      gdb
+                      valgrind
                     ];
+                    shellHook = ''
+                      export UML_CAFE_PROJECT_TEMPLATE=${project-templates}
+                      export UML_CAFE_PROJECT_TEMPLATES_V_0_1_0=${project-templates-v0_1_0}
+                    '';
                 };
 
                 packages.uml-server = mkUmlServer {
                   src = ./.;
-                  #umlcpp = uml-cpp.outputs.packages.${system}.uml-cpp_0_4_2;
                 };
                 packages.uml-server_0_1_2 = pkgs.stdenvNoCC.mkDerivation {
                   src = pkgs.fetchurl {
@@ -66,12 +72,6 @@
                       "-HAuthorization: Bearer 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"
                       "-HX-GitHub-Api-Version: 2022-11-28"
                     ];
-                    # postFetch = ''
-                    #   tar xvzf $downloadedFile 
-                    #   ls -la
-                    #   rm $out
-                    #   cp -r uml-server-v0.1.2 $out
-                    # '';
                   };
                   name = "uml-server";
                   unpackPhase = ''
@@ -79,12 +79,12 @@
                     mkdir $out
                     cp -rp uml-server-release/. $out
                   '';
-		  umlcpp = uml-cpp.outputs.packages.${system}.uml-cpp_0_4_2;
-		  yamlcpp = pkgs.yaml-cpp;
-	   	  buildPhase = ''
-		    ln -sf $umlcpp/lib/libuml.so $out/bin/libuml.so
-		    ln -sf $yamlcpp/lib/libyaml-cpp.so $out/bin/libyaml-cpp.so.0.8
-		  '';
+		          umlcpp = uml-cpp.outputs.packages.${system}.uml-cpp_0_4_2;
+		          yamlcpp = pkgs.yaml-cpp;
+	   	          buildPhase = ''
+		            ln -sf $umlcpp/lib/libuml.so $out/bin/libuml.so
+		            ln -sf $yamlcpp/lib/libyaml-cpp.so $out/bin/libyaml-cpp.so.0.8
+		          '';
                 };
                 packages.uml-server_0_1_1 = mkUmlServer {
                   src = builtins.fetchGit {

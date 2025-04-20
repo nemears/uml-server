@@ -32,19 +32,22 @@ using namespace EGM;
 using ElementPtr = UmlServer::Pointer<Element>;
 using NamedElementPtr = UmlServer::Pointer<NamedElement>;
 
-void UmlServer::sendMessage(UmlServer::ClientInfo& info, std::string& data) {
+namespace UML {
+void send_message(int socket, std::string& data) {
     uint64_t dataSize = data.size() + 1;
     uint64_t dataSizeNetwork = htobe64(dataSize);
-    send(info.socket, &dataSizeNetwork, sizeof(uint64_t), 0);
+    send(socket, &dataSizeNetwork, sizeof(uint64_t), 0);
     uint64_t total_bytes_sent = 0;
     const char* data_buffer = data.c_str();
     while (total_bytes_sent < dataSize) {
-        int bytesSent = send(info.socket, data_buffer + total_bytes_sent, UML_SERVER_MSG_SIZE, 0);
+        int bytesSent = send(socket, data_buffer + total_bytes_sent, dataSize, 0);
         if (bytesSent <= 0) {
             throw ManagerStateException();
         }
         total_bytes_sent += bytesSent;
+        dataSize -= bytesSent;
     }
+}
 }
 
 using ParameterPair = std::pair<std::string, std::string>;
@@ -165,7 +168,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
 
 
         if (meta_manager_id != ID::nullID()) {
-            MetaManager& meta_manager = m_meta_managers.at(meta_manager_id);
+            MetaManager& meta_manager = get_meta_manager(meta_manager_id);
             auto el_to_erase = meta_manager.get(elID);
             meta_manager.erase(*el_to_erase);
             log("erased element " + elID.string() + " from meta manager " + meta_manager_id.string());
@@ -183,12 +186,12 @@ void UmlServer::handleMessage(ID id, std::string buff) {
         }
     } else if (node["DUMP"] || node["dump"]) {
         std::string dump = this->dumpYaml();
-        sendMessage(info, dump);
+        send_message(info.socket, dump);
         log("dumped server data to client, data: " + dump);
     } else if (node["generate"]) {
         if (!node["generate"].IsScalar()) {
             std::string msg = "{\"error\":\"invalid generate request, must be a scalar of an id to generate!\"}"; 
-            sendMessage(info, msg);
+            send_message(info.socket, msg);
             log(msg);
         } else {
             // generate the meta manager, send id of manager back
@@ -198,7 +201,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             std::ostringstream oss;
             oss << "{\"manager\":\"" << manager_id.string() << "\"}";
             std::string msg = oss.str();
-            sendMessage(info, msg);
+            send_message(info.socket, msg);
             log("generated manager with id " + manager_id.string());
         }
     } else if (node["GET"] || node["get"]) {
@@ -207,7 +210,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
         YAML::Node getNode = (node["GET"] ? node["GET"] : node["get"]);
         if (!getNode.IsScalar()) {
             std::string msg = "{\"error\":\"invalid format for get request! Must be formatted as a scalar string!\"}";
-            sendMessage(info, msg);
+            send_message(info.socket, msg);
             log(msg);
         } else {
             // parse id and parameters from request
@@ -216,7 +219,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             if (!parse_result) {
                 std::string msg = "{\"error\":\"problem while parsing get request parameters: " + parse_result.error() + "\"}";
                 log(msg);
-                sendMessage(info, msg);
+                send_message(info.socket, msg);
                 return;
             }
 
@@ -226,7 +229,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                 } else {
                     std::string msg = "{\"error\":\"invalid parameter in get request: " + parameter_pair.first + "\"}";
                     log(msg);
-                    sendMessage(info, msg);
+                    send_message(info.socket, msg);
                     return;
                 }
             }
@@ -248,19 +251,19 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                     }
                     ElementPtr el = abstractGet(elID);
                     std::string msg = this->emitIndividual(*el);
-                    sendMessage(info, msg);
+                    send_message(info.socket, msg);
                     log("server got element " +  elID.string() + " for client " + id.string() + ":\n" + msg);
                 } else {
-                    MetaManager& meta_manager = m_meta_managers.at(manager_id);
+                    MetaManager& meta_manager = get_meta_manager(manager_id);
                     MetaManager::Pointer<MetaElement> el = meta_manager.get(elID);
                     std::string msg = meta_manager.emit_meta_element(*el);
-                    sendMessage(info, msg);
+                    send_message(info.socket, msg);
                     log("server got element " + elID.string() + " from manager " + manager_id.string() + " for client " + id.string() + " :\n" + msg);
                 }
             } catch (std::exception& e) {
                 log(e.what());
                 std::string msg = std::string("{\"ERROR\":\"") + std::string(e.what()) + std::string("\"}");
-                sendMessage(info, msg);
+                send_message(info.socket, msg);
             } 
         }
     } else if (node["POST"] || node["post"]) {
@@ -291,7 +294,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                     }
                     ID manager_id = ID::fromString(manager_node.as<std::string>());
 
-                    MetaManager& meta_manager = m_meta_managers.at(manager_id);
+                    MetaManager& meta_manager = get_meta_manager(manager_id);
                     
                     if (!postNode["type"]) {
                         std::string msg = "{\"error\":\"post request did not specify type!\"}";
@@ -401,7 +404,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                 return;
             }
 
-            MetaManager& meta_manager = m_meta_managers.at(ID::fromString(manager_node.as<std::string>()));
+            MetaManager& meta_manager = get_meta_manager(ID::fromString(manager_node.as<std::string>()));
 
             auto el = meta_manager.parse_node(element_node);
             if (el) {
@@ -601,48 +604,60 @@ void UmlServer::acceptNewClients(UmlServer* me) {
                 }
             }
             #endif
-            
-            // request ID
-            const char* idMsg = "id";
-            int bytesSent = send(newSocketD, idMsg, 3, 0);
-            if (bytesSent != 3) {
-                me->log("wcould not send id request to new client! error:" + std::string(strerror(errno)));
-                #ifdef WIN32
-                closesocket(newSocketD);
-                WSACleanup();
-                #endif
-                throw ManagerStateException("could not send id request to new client!");
+           
+            YAML::Emitter emitter;
+            emitter << YAML::DoubleQuoted << YAML::Flow; // emit json
+
+            // info to give is just the present metaManagers in a list
+            emitter << YAML::BeginSeq;
+            for (auto& meta_manager_pair : me->meta_managers()) {
+                emitter << YAML::BeginMap;
+                emitter << YAML::Key << "id";
+                emitter << YAML::Value << meta_manager_pair.first.string();
+                emitter << YAML::Key << "uml_root";
+                emitter << YAML::Value << meta_manager_pair.second.get_generation_root().id().string();
+                emitter << YAML::EndMap;
             }
-            char buff[29];
-            int bytesReceived = recv(newSocketD, buff, 29, 0);
-            if (bytesReceived <= 0) {
-                #ifdef WIN32
-                closesocket(newSocketD);
-                WSACleanup();
-                #endif
-                throw ManagerStateException("Did not get proper id from client");
+            emitter << YAML::EndSeq;
+
+            // send to client
+            std::string json_dump = emitter.c_str();
+            send_message(newSocketD, json_dump);
+
+            // client will send back an id
+            uint64_t size_buffer;
+            int bytes_received =  recv(newSocketD, &size_buffer, sizeof(uint64_t), 0);
+            if (bytes_received != sizeof(uint64_t)) {
+                throw ManagerStateException("Did not read full uint64_t size");
             }
-            try {
-                if (ID::fromString(buff) == me->m_shutdownID) {
-                    break;
-                }
-            } catch (std::exception& e) {
-                me->log("ERRROR: " + std::string(e.what()));
-                continue;
+
+            size_buffer = be64toh(size_buffer);
+
+            if (size_buffer != 29) {
+                throw ManagerStateException("Clients reported message size for id is of improper size!");
             }
-            me->log("got id from client: " + std::string(buff));
-            ClientInfo& info = me->m_clients[ID::fromString(buff)];
-            info.socket = newSocketD;
-            info.thread = new std::thread(receiveFromClient, me, ID::fromString(buff));
-            info.handler = new std::thread(clientSubThreadHandler, me, ID::fromString(buff));
-            if (!send(newSocketD, buff, 29, 0)) { // send ID back to say that the server has a thread ready for the client's messages
-                #ifdef WIN32
-                closesocket(newSocketD);
-                WSACleanup();
-                #endif
-                throw ManagerStateException("Was not able to send response back to client!");
+
+            char id_buffer[29];
+            bytes_received = recv(newSocketD, id_buffer, 29, 0);
+            if (bytes_received != 29) {
+                throw ManagerStateException("Did not receive enough bytes from client for id!");
             }
-            me->log("sent id back to client: " + std::string(buff));
+
+            auto client_id = ID::fromString(id_buffer);
+
+            if (client_id == me->m_shutdownID)
+                break;
+
+            // add to client map setup threads
+            me->log("got id from client: " + client_id.string());
+            ClientInfo& client_info = me->m_clients[client_id];
+            client_info.socket = newSocketD;
+            client_info.thread = new std::thread(receiveFromClient, me, client_id);
+            client_info.handler = new std::thread(clientSubThreadHandler, me, client_id);
+           
+            auto id_buffer_string = client_id.string();
+            send_message(newSocketD, id_buffer_string);
+            me->log("sent id back to client: " + client_id.string());
         }
         me->m_running = false;
     }

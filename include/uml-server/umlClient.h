@@ -8,6 +8,9 @@ namespace UML {
     class UmlClient : public GenerativeManager<EGM::Manager<UmlTypes, EGM::SerializedStoragePolicy<GenerativeSerializationPolicy, ServerPersistencePolicy>>> {
         using BaseManager = GenerativeManager<EGM::Manager<UmlTypes, EGM::SerializedStoragePolicy<GenerativeSerializationPolicy, ServerPersistencePolicy>>>; 
         public:
+            UmlClient() {
+                this->m_initialization_procedure();
+            }
             BaseManager::Pointer<Element> get(std::string qualifiedName);
             BaseManager::Pointer<Element> get(EGM::ID id) {
                 return BaseManager::get(id);

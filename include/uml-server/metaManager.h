@@ -204,6 +204,7 @@ namespace UML {
         friend class GenerativeManager;
         private:
             using BaseManager = EGM::Manager<EGM::TemplateTypeList<MetaElement>, EGM::SerializedStoragePolicy<MetaElementSerializationPolicy, EGM::FilePersistencePolicy>>;
+        protected:
             using MetaElementPtr = BaseManager::Pointer<MetaElement>;
             using MetaElementImpl = BaseManager::Implementation<MetaElement>;
             EGM::ManagerTypes<UmlTypes>& m_uml_manager;
@@ -217,6 +218,7 @@ namespace UML {
         public:
             MetaManager(UmlManager::Implementation<Package>& abstraction_root);
             std::size_t get_type_by_name(std::string name) { return m_name_to_type.at(name); }
+            UmlManager::Pointer<Package> get_generation_root() const { return m_generation_root; }
         private:
             // create_meta_element
             // element_type - element_type of meta_element
@@ -256,10 +258,6 @@ namespace UML {
 
             EGM::ManagerTypes<UmlTypes>& getUmlManager() const {
                 return m_uml_manager;
-            }
-
-            UmlManager::Pointer<Package> get_generation_root() const {
-                return m_generation_root;
             }
 
             std::string emit_meta_element(MetaManager::Implementation<MetaElement>& el) {

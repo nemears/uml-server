@@ -5,9 +5,8 @@
         flake-utils.url = "github:numtide/flake-utils";
         uml-cpp.url = "github:nemears/uml-cpp";
         nixpkgs.follows = "uml-cpp/nixpkgs";
-        # egm.follows = "uml-cpp/egm";
-        egm.url = "path:/home/emory/Projects/egm";
-        uml-cafe-project-templates.url = "path:/home/emory/Projects/uml-cafe-project-templates";
+        egm.follows = "uml-cpp/egm";
+        uml-cafe-project-templates.url = "github:nemears/uml-cafe-project-templates";
     };
 
     outputs = { self, nixpkgs, flake-utils, uml-cpp, egm, uml-cafe-project-templates }:
@@ -31,7 +30,6 @@
                     '';
                 };
                 project-templates = uml-cafe-project-templates.packages.${system}.default; 
-                project-templates-v0_1_0 = uml-cafe-project-templates.packages.${system}.uml-cafe-project-templates-v0_1_0;
             in
             {
                 devShells.default = pkgs.mkShell {
@@ -54,7 +52,6 @@
                     ];
                     shellHook = ''
                       export UML_CAFE_PROJECT_TEMPLATE=${project-templates}
-                      export UML_CAFE_PROJECT_TEMPLATES_V_0_1_0=${project-templates-v0_1_0}
                     '';
                 };
 

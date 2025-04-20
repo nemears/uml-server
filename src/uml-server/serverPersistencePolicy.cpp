@@ -7,6 +7,9 @@
 #include "uml-server/serverPersistencePolicy.h"
 #include "uml/uml-stable.h"
 #include "yaml-cpp/yaml.h"
+#include "uml-server/generativeManager.h"
+#include "uml-server/umlServer.h"
+#include <future>
 
 using namespace std;
 using namespace EGM;
@@ -105,8 +108,9 @@ void ServerPersistencePolicy::eraseEl(ID id) {
     sendEmitter(m_socketD, emitter);
 }
 
-void ServerPersistencePolicy::reindex(ID oldID, ID newID) {
+AbstractElementPtr ServerPersistencePolicy::reindex(ID oldID, ID newID) {
     // TODO
+    return AbstractElementPtr();
 }
 
 ServerPersistencePolicy::ServerPersistencePolicy() {
@@ -140,40 +144,61 @@ ServerPersistencePolicy::ServerPersistencePolicy() {
     if (result < 0) {
         throw ManagerStateException("could not disable Nagle's algorithm on client side!");
     }
-    char buff[3];
-    int bytesReceived = 0;
-    while ((bytesReceived += recv(m_socketD, buff + bytesReceived, 3 - bytesReceived, 0)) < 3) {
-        if (bytesReceived <= 0) {
-            throw ManagerStateException();
-        }
-    }
-    if (buff[2] != '\0') {
-        char buff2[4] = {buff[0], buff[1], buff[2], '\0'};
-        throw ManagerStateException("Invalid connection response from server, message (might be garbage): " + std::string(buff2));
-    }
-    if (std::string("id").compare(buff) != 0) {
+
+    // receive server identification (lists of meta_managers)
+    uint64_t server_message_size;
+    int bytes_received = recv(m_socketD, &server_message_size, sizeof(uint64_t), 0);
+    if (bytes_received != sizeof(uint64_t)) {
         throw ManagerStateException();
     }
-    char* idMsg = new char[29];
-    std::string strBuff = clientID.string();
-    std::copy(strBuff.begin(), strBuff.end(), idMsg);
-    idMsg[28] = '\0';
-    int bytesSent = send(m_socketD, idMsg, 29, 0);
-    if (bytesSent != 29) {
-        throw ManagerStateException("did not send all bytes!");
+
+    server_message_size = be64toh(server_message_size);
+    char* server_message_buffer = (char*) malloc(server_message_size * sizeof(char));
+    char* buffer_index = server_message_buffer;
+    while ((bytes_received = recv(m_socketD, buffer_index, server_message_size, 0)) < (int) server_message_size) {
+        if (bytes_received <= 0) {
+            throw ManagerStateException("could not process server initial message!");
+        }
+        server_message_size -= bytes_received;
+        buffer_index += bytes_received;
     }
-    delete[] idMsg;
-    char acceptBuff[29];
-    bytesReceived = 0;
-    while ((bytesReceived += recv(m_socketD, acceptBuff + bytesReceived, 29 - bytesReceived, 0)) < 29) {
-            // if (bytesReceived == 0) {
-            //     throw ManagerStateException("did not get accept message!");
-            // } else {
-            //     throw ManagerStateException("Error reciving acceptance message: " + std::string(strerror(errno)));
-            // }
+
+    auto server_message_node = YAML::Load(server_message_buffer);
+    
+    m_initialization_procedure = [server_message_node, this](){
+        for (auto manager_info_node : server_message_node) {
+            m_meta_managers.emplace(
+                    ID::fromString(manager_info_node["id"].as<std::string>()), 
+                    dynamic_cast<UmlManager::Implementation<Package>&>(*this->abstractGet(ID::fromString(manager_info_node["uml_root"].as<std::string>())))
+            );
+        }             
+    };
+    
+    free(server_message_buffer);
+    std::string id_string = clientID.string();
+    send_message(m_socketD, id_string);
+
+    // receive
+    uint64_t receive_message_size;
+    bytes_received = recv(m_socketD, &receive_message_size, sizeof(uint64_t), 0);
+    if (bytes_received != sizeof(uint64_t)) {
+        throw ManagerStateException("could not process entire size");
     }
-    if (clientID.string().compare(acceptBuff) != 0) {
-        throw ManagerStateException("did not get proper accept message!");
+
+    receive_message_size = be64toh(receive_message_size);
+    if (receive_message_size != 29)
+        throw ManagerStateException("wrong size for id sent to manager");
+
+    char id_buffer[29];
+    char* id_index = id_buffer;
+    while ((bytes_received = recv(m_socketD, id_index, receive_message_size, 0)) < (int) receive_message_size) {
+        receive_message_size -= bytes_received;
+        id_index += bytes_received;
+    }
+
+    ID id_from_server = ID::fromString(id_buffer);
+    if (id_from_server != clientID) {
+        throw ManagerStateException("wrong id from server!");
     }
 }
 

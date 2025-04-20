@@ -6,6 +6,7 @@
 namespace UML {
 
     class AbstractGenerativeManager;
+    class ServerPersistencePolicy;
     
     class GenerativeSerializationPolicy : public EGM::JsonSerializationPolicy<UmlTypes> {
         protected:
@@ -19,14 +20,24 @@ namespace UML {
     
     class AbstractGenerativeManager : virtual public EGM::AbstractManager {
         friend class GenerativeSerializationPolicy;
-        protected:
+        friend class ServerPersistencePolicy;
+        template <class>
+        friend class GenerativeManager;
+        private:
             std::unordered_map<EGM::ID, MetaManager> m_meta_managers;
+        public:
+            virtual MetaManager& get_meta_manager(EGM::ID id) {
+                return m_meta_managers.at(id);
+            }
+            virtual std::unordered_map<EGM::ID, MetaManager>& meta_managers() {
+                return m_meta_managers;
+            }
     };
  
     // Note: The BaseManager must have the UML::UmlTypes managed as well as use the 
     //       GenerativeSerializationPolicy defined above to be linked to it
     template <class BaseManager>
-    class GenerativeManager : public BaseManager , public AbstractGenerativeManager {
+    class GenerativeManager : public BaseManager , virtual public AbstractGenerativeManager {
         friend class GenerativeSerializationPolicy;
         public:
             GenerativeManager() {
@@ -47,16 +58,12 @@ namespace UML {
                 return manager_id;
             }
 
-            MetaManager& get_meta_manager(EGM::ID id) {
-                return m_meta_managers.at(id);
-            }
-
             void erase(EGM::AbstractElement& el) override {
                 // make sure any stereotype data is freed first
                 auto& uml_element = dynamic_cast<UmlManager::Implementation<Element>&>(el);
                 for (auto& applied_stereotype : uml_element.getAppliedStereotypes()) {
                     // get meta_manager from applied_stereotype owning package (will be same id as manager)
-                    auto& meta_manager = m_meta_managers.at(applied_stereotype.getOwningPackage().id());
+                    auto& meta_manager = get_meta_manager(applied_stereotype.getOwningPackage().id());
 
                     // erase stereotype data so no hanging references to our base element
                     auto& meta_element = *meta_manager.get(applied_stereotype.getID());

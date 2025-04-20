@@ -25,6 +25,8 @@ namespace std {
 
 namespace UML {
 
+    void send_message(int socket, std::string& data);
+
     class UmlServer : public GenerativeManager<EGM::Manager<UmlTypes, EGM::SerializedStoragePolicy<GenerativeSerializationPolicy, EGM::FilePersistencePolicy>>> {
 
         private:
@@ -64,7 +66,6 @@ namespace UML {
             static void garbageCollector(UmlServer* me);
             static void zombieKiller(UmlServer* me);
             void handleMessage(EGM::ID id, std::string buff);
-            void sendMessage(ClientInfo& info, std::string& data);
             std::thread* m_acceptThread = 0;
             std::thread* m_garbageCollectionThread = 0;
             std::thread* m_zombieKillerThread = 0;

@@ -80,7 +80,7 @@ vector<ManagedPtr<AbstractElement>> GenerativeSerializationPolicy::parseWhole(st
                 throw ManagerStateException("Invalid format for meta_manager, no data! line " + to_string(meta_manager_node.Mark().line));
             }
 
-            if (!data_node.IsScalar()) {
+            if (!data_node.IsSequence()) {
                 throw ManagerStateException("Invalid format for meta_manager data node, must be a sequence! line " + data_node_line);
             }
 

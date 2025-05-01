@@ -28,6 +28,7 @@ namespace UML {
             void saveProjectData(std::string data);
             void eraseEl(EGM::ID id);
             EGM::AbstractElementPtr reindex(EGM::ID oldID, EGM::ID newID) override;
+
             ServerPersistencePolicy();
         public:
             void mount(std::string mountPath);

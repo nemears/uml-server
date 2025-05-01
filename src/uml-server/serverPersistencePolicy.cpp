@@ -17,21 +17,8 @@ using namespace EGM;
 namespace UML {
 
 void ServerPersistencePolicy::sendEmitter(int socket, YAML::Emitter& emitter) {
-    int totalBytesSent = 0;
-    int bytesSent = 0;
-    int packetSize = sizeof(uint32_t) + sizeof(char) * (emitter.size() + 1);
-    char* packet = (char*) malloc(packetSize);
-    uint32_t sizeOfEmitter = htonl(emitter.size() + 1);
-    memcpy(packet, &sizeOfEmitter, sizeof(uint32_t));
-    strcpy(packet + sizeof(uint32_t), emitter.c_str());
-    while ((bytesSent = send(socket, packet + totalBytesSent, packetSize - totalBytesSent, 0)) < packetSize - totalBytesSent) {
-        if (bytesSent == -1) {
-            throw ManagerStateException("could not send packet to server: " + string(strerror(errno)));
-        } else {
-            totalBytesSent += bytesSent;
-        }
-    }
-    free(packet);
+    string emitter_string(emitter.c_str());
+    send_message(socket, emitter_string);
 }
 
 std::string ServerPersistencePolicy::loadElementData(ID id) {
@@ -43,28 +30,7 @@ std::string ServerPersistencePolicy::loadElementData(ID id) {
     sendEmitter(m_socketD, emitter);
 
     // receive
-    uint64_t msgSize = 0;
-    int bytesReceived = recv(m_socketD, &msgSize, sizeof(uint64_t), 0);
-    if (bytesReceived == -1) {
-        throw ManagerStateException("No data returned from server!");
-    }
-    msgSize = be64toh(msgSize);
-    char buff[UML_CLIENT_MSG_SIZE];
-    bytesReceived = recv(m_socketD, &buff, UML_CLIENT_MSG_SIZE, 0);
-    if (bytesReceived == -1) {
-        throw ManagerStateException("No data returned from server!");
-    }
-    uint64_t totalBytesReceived = bytesReceived;
-    string ret = buff; // copy data to string
-    while (totalBytesReceived < msgSize) {
-        bytesReceived = recv(m_socketD, &buff, UML_CLIENT_MSG_SIZE, 0);
-        if (bytesReceived == -1) {
-            throw ManagerStateException("No data returned from server!");
-        }
-        totalBytesReceived += bytesReceived;
-        ret += buff;
-    }
-    return ret;
+    return *receive_message(m_socketD);
 }
 
 void ServerPersistencePolicy::saveElementData(std::string data, ID id) {
@@ -153,7 +119,7 @@ ServerPersistencePolicy::ServerPersistencePolicy() {
     }
 
     server_message_size = be64toh(server_message_size);
-    char* server_message_buffer = (char*) malloc(server_message_size * sizeof(char));
+    char* server_message_buffer = (char*) malloc((server_message_size + 1) * sizeof(char));
     char* buffer_index = server_message_buffer;
     while ((bytes_received = recv(m_socketD, buffer_index, server_message_size, 0)) < (int) server_message_size) {
         if (bytes_received <= 0) {
@@ -162,6 +128,8 @@ ServerPersistencePolicy::ServerPersistencePolicy() {
         server_message_size -= bytes_received;
         buffer_index += bytes_received;
     }
+
+    server_message_buffer[server_message_size] = '\0';
 
     auto server_message_node = YAML::Load(server_message_buffer);
     
@@ -186,7 +154,7 @@ ServerPersistencePolicy::ServerPersistencePolicy() {
     }
 
     receive_message_size = be64toh(receive_message_size);
-    if (receive_message_size != 29)
+    if (receive_message_size != 28)
         throw ManagerStateException("wrong size for id sent to manager");
 
     char id_buffer[29];
@@ -195,6 +163,7 @@ ServerPersistencePolicy::ServerPersistencePolicy() {
         receive_message_size -= bytes_received;
         id_index += bytes_received;
     }
+    id_buffer[28] = '\0';
 
     ID id_from_server = ID::fromString(id_buffer);
     if (id_from_server != clientID) {

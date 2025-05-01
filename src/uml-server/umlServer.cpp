@@ -34,7 +34,7 @@ using NamedElementPtr = UmlServer::Pointer<NamedElement>;
 
 namespace UML {
 void send_message(int socket, std::string& data) {
-    uint64_t dataSize = data.size() + 1;
+    uint64_t dataSize = data.size();
     uint64_t dataSizeNetwork = htobe64(dataSize);
     send(socket, &dataSizeNetwork, sizeof(uint64_t), 0);
     uint64_t total_bytes_sent = 0;
@@ -47,6 +47,25 @@ void send_message(int socket, std::string& data) {
         total_bytes_sent += bytesSent;
         dataSize -= bytesSent;
     }
+}
+
+std::optional<std::string> receive_message(int socket) {
+    uint64_t message_size_buffer;
+    uint64_t bytes_read = recv(socket, &message_size_buffer, sizeof(uint64_t), 0);
+    if (bytes_read <= 0) {
+        return std::nullopt;
+    }
+
+    // TODO check bytes_read == sizeof(uint64_t) and try to read rest
+    
+    // get rest of message 
+    message_size_buffer = be64toh(message_size_buffer);
+    char* message_buffer = (char*) calloc(message_size_buffer + 1, sizeof(char));
+    message_buffer[message_size_buffer] = '\0';
+    bytes_read = 0;
+    while ((bytes_read += recv(socket, message_buffer + bytes_read, message_size_buffer - bytes_read, 0)) < message_size_buffer) {}
+    std::string message_string = std::move(message_buffer);
+    return message_string;
 }
 }
 
@@ -463,94 +482,18 @@ void UmlServer::receiveFromClient(UmlServer* me, ID id) {
     me->log("server set up thread to listen to client " + id.string());
     ClientInfo& info = me->m_clients[id];
     while (me->m_running) {
-        // data to read
-        // first bytes are size of message
-        uint32_t size;
-        ssize_t bytesRead = recv(info.socket, (char*)&size, sizeof(uint32_t), 0);
-        size = ntohl(size);
-        ssize_t sizeSize = sizeof(uint32_t);
-        if (bytesRead == 0) {
-            // client shutdown
-            me->log("error receiving message, lost connection to client");
-            std::lock_guard<std::mutex> zombieLck(me->m_zombieMtx);
-            me->m_zombies.push_back(id);
-            me->m_zombieCv.notify_one();
+        // receive message
+        auto message_option = receive_message(info.socket);
+        if (!message_option) {
+            me->log(std::format("ERROR: fatal client error for client {}", id.string()));
             return;
         }
-        if (bytesRead < 0) {
-            // error
-            me->log("error receiving message, " + std::string(strerror(errno)));
-            continue;
-        }
 
-        if (size == 0) {
-            me->log("error determining size of message");
-            continue;
-        }
-
-        // get rest of message
-        char* messageBuffer = (char*) malloc(2 * size);
-
-        if (messageBuffer == 0) {
-            me->log("error receiving message, could not allocate memory for message of size " + std::to_string(size));
-            continue;
-        }
-
-        bytesRead = recv(info.socket, messageBuffer, 2 * size, 0);
-
-        // store message data
-        {
-            std::lock_guard<std::mutex> handlerLck(info.handlerMtx);
-            info.threadQueue.push_back(messageBuffer);
-        }
-
-        // check for additional data
-        while (bytesRead > size) { // TODO test
-
-            // get second size
-            uint32_t secondSize;
-            memcpy(&secondSize, &messageBuffer[size], sizeof(uint32_t));
-            secondSize = ntohl(secondSize);
-
-            // move message buffer up
-            bytesRead -= (size + sizeSize);
-            char* tempBuffer = (char*) malloc(bytesRead);
-            memcpy(tempBuffer, messageBuffer + size + sizeSize, bytesRead);
-            free(messageBuffer);
-            ssize_t newMessageBufferSize = bytesRead;
-            if (secondSize > bytesRead) {
-                newMessageBufferSize = 2 * secondSize;
-            } else if (secondSize != bytesRead && secondSize + sizeSize > bytesRead) {
-                newMessageBufferSize = secondSize + sizeSize;
-            }
-            messageBuffer = (char*) malloc(newMessageBufferSize);
-            memcpy(messageBuffer, tempBuffer, bytesRead);
-            free(tempBuffer);
-
-            // receive rest of this message
-            if (secondSize > bytesRead || (secondSize != bytesRead && secondSize + sizeSize > bytesRead)) {
-                ssize_t recvRet = recv(info.socket, 
-                                    messageBuffer + bytesRead, 
-                                    newMessageBufferSize - bytesRead, 
-                                    0);
-                if (recvRet < 0) {
-                    // error
-                    me->log("error receiving message, " + std::string(strerror(errno)));
-                    break;
-                }
-                bytesRead += recvRet;
-            }
-
-            // store message data
-            std::lock_guard<std::mutex> lck(info.handlerMtx);
-            info.threadQueue.push_back(messageBuffer);
-            size = secondSize;
-            me->log("receive from client thread added new message to threadQueue");
-        }
-
-        // start processing messages
+        // dispatch message
+        std::lock_guard<std::mutex> lck(info.handlerMtx);
+        info.threadQueue.push_back(*message_option);
+        me->log("receive from client thread added new message to threadQueue");
         info.handlerCv.notify_one();
-        free(messageBuffer);
     }
 }
 
@@ -633,15 +576,17 @@ void UmlServer::acceptNewClients(UmlServer* me) {
 
             size_buffer = be64toh(size_buffer);
 
-            if (size_buffer != 29) {
+            if (size_buffer != 28) {
                 throw ManagerStateException("Clients reported message size for id is of improper size!");
             }
 
             char id_buffer[29];
-            bytes_received = recv(newSocketD, id_buffer, 29, 0);
-            if (bytes_received != 29) {
+            bytes_received = recv(newSocketD, id_buffer, 28, 0);
+            if (bytes_received != 28) {
                 throw ManagerStateException("Did not receive enough bytes from client for id!");
             }
+
+            id_buffer[28] = '\0';
 
             auto client_id = ID::fromString(id_buffer);
 

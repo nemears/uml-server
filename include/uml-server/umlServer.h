@@ -6,6 +6,7 @@
 #include <iostream>
 #include <mutex>
 #include <condition_variable>
+#include <optional>
 #ifdef WIN32
 #include "winsock2.h"
 #include <ws2tcpip.h>
@@ -26,6 +27,7 @@ namespace std {
 namespace UML {
 
     void send_message(int socket, std::string& data);
+    std::optional<std::string> receive_message(int socket);
 
     class UmlServer : public GenerativeManager<EGM::Manager<UmlTypes, EGM::SerializedStoragePolicy<GenerativeSerializationPolicy, EGM::FilePersistencePolicy>>> {
 

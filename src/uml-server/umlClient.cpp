@@ -1,5 +1,6 @@
 #include "uml/uml-stable.h"
 #include "uml-server/umlClient.h"
+#include "uml-server/umlServer.h"
 #include "uml/uml-stable.h"
 #include "yaml-cpp/yaml.h"
 #include <sys/socket.h>
@@ -20,28 +21,8 @@ UmlClient::Pointer<Element> UmlClient::get(std::string qualifiedName) {
     YAML::EndMap;
     sendEmitter(m_socketD, emitter);
 
-    // receive
-    char* buff = (char*)malloc(UML_CLIENT_MSG_SIZE);
-    int bytesReceived = recv(m_socketD, buff, UML_CLIENT_MSG_SIZE, 0);
-    if (bytesReceived <= 0) {
-        throw ManagerStateException();
-    }
-    int i = 0;
-    while (bytesReceived >= UML_CLIENT_MSG_SIZE - 1) {
-        if (buff[i * UML_CLIENT_MSG_SIZE + UML_CLIENT_MSG_SIZE - 1] != '\0') {
-            buff = (char*)realloc(buff, 2 * UML_CLIENT_MSG_SIZE + i * UML_CLIENT_MSG_SIZE);
-            bytesReceived = recv(m_socketD, &buff[UML_CLIENT_MSG_SIZE + i * UML_CLIENT_MSG_SIZE], UML_CLIENT_MSG_SIZE, 0);
-        } else {
-            break;
-        }
-        i++;
-    }
-    
-    string data(buff);
-    free(buff);
-
-    // parse
-    UmlClient::Pointer<Element> ret = JsonSerializationPolicy<UmlTypes>::parseIndividual(data);
+    // receive and parse
+    UmlClient::Pointer<Element> ret = JsonSerializationPolicy<UmlTypes>::parseIndividual(*receive_message(m_socketD));
     
     // Todo run restoration
 

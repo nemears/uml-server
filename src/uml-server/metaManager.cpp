@@ -63,7 +63,7 @@ void MetaElementSerializationPolicy::emitIndividual(YAML::Emitter& emitter, EGM:
     emitter << YAML::EndMap;
 }
 
-MetaManager::MetaManager(UmlManager::Implementation<Package>& abstraction_root) : 
+MetaManager::MetaManager(UmlManager::Implementation<Element>& abstraction_root) : 
     m_uml_manager(abstraction_root.getManager())
 {
     
@@ -79,7 +79,7 @@ MetaManager::MetaManager(UmlManager::Implementation<Package>& abstraction_root) 
     m_storage_root = m_uml_manager.create<Package>();
    
     // set up types 
-    std::list<UmlManager::Pointer<PackageableElement>> queue = { &abstraction_root };
+    std::list<UmlManager::Pointer<Element>> queue = { &abstraction_root };
     std::size_t next_type = 0;
     while (!queue.empty()) {
         auto front = queue.front();

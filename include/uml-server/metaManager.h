@@ -209,16 +209,16 @@ namespace UML {
             using MetaElementImpl = BaseManager::Implementation<MetaElement>;
             EGM::ManagerTypes<UmlTypes>& m_uml_manager;
             UmlManager::Pointer<Package> m_storage_root;
-            UmlManager::Pointer<Package> m_generation_root;
+            UmlManager::Pointer<Element> m_generation_root;
             std::unordered_map<std::size_t, UmlManager::Pointer<Classifier>> m_uml_types;
             std::unordered_map<EGM::ID, std::size_t> m_id_to_type;
             std::unordered_map<std::string, std::size_t> m_name_to_type;
             std::unordered_set<EGM::ID> m_meta_elements;
 
         public:
-            MetaManager(UmlManager::Implementation<Package>& abstraction_root);
+            MetaManager(UmlManager::Implementation<Element>& abstraction_root);
             std::size_t get_type_by_name(std::string name) { return m_name_to_type.at(name); }
-            UmlManager::Pointer<Package> get_generation_root() const { return m_generation_root; }
+            UmlManager::Pointer<Element> get_generation_root() const { return m_generation_root; }
         private:
             // create_meta_element
             // element_type - element_type of meta_element

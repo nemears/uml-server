@@ -215,7 +215,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
         } else {
             // generate the meta manager, send id of manager back
             ID generation_root_id = ID::fromString(node["generate"].as<std::string>());
-            ID manager_id = generate(get(generation_root_id)->as<Package>());
+            ID manager_id = generate(get(generation_root_id)->as<Element>());
 
             std::ostringstream oss;
             oss << "{\"manager\":\"" << manager_id.string() << "\"}";

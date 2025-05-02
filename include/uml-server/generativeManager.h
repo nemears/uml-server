@@ -49,7 +49,7 @@ namespace UML {
             // generate a new MetaManager to manage at a higher level of abstraction
             // generation_root : root of uml elements to generate a manager from
             // return : the ID of the created meta_manager for use of the manager and its elements
-            EGM::ID generate(UmlManager::Implementation<Package>& generation_root) {
+            EGM::ID generate(UmlManager::Implementation<Element>& generation_root) {
                 EGM::ID manager_id = EGM::ID::randomID();
                 MetaManager& created_manager = m_meta_managers.emplace(manager_id, generation_root).first->second;
                 // set storage root to correspond to manager id

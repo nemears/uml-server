@@ -25,6 +25,9 @@ namespace UML {
         friend class GenerativeManager;
         private:
             std::unordered_map<EGM::ID, MetaManager> m_meta_managers;
+        protected:
+            std::unordered_map<std::string, std::size_t> names_to_element_type;
+            std::unordered_map<std::size_t, std::string> element_types_to_name;
         public:
             virtual MetaManager& get_meta_manager(EGM::ID id) {
                 return m_meta_managers.at(id);
@@ -39,11 +42,40 @@ namespace UML {
     template <class BaseManager>
     class GenerativeManager : public BaseManager , virtual public AbstractGenerativeManager {
         friend class GenerativeSerializationPolicy;
+        protected:
+            
+
+            template <class List, class Dummy = void>
+            struct fill_names_to_element_type;
+
+            template <template <class> class First, template <class> class ... Rest, class Dummy>
+            struct fill_names_to_element_type<EGM::TemplateTypeList<First, Rest...>, Dummy> {
+                static void fill(GenerativeManager& server) {
+                    if constexpr (!typename BaseManager::IsAbstract<First>{}) {
+                        server.names_to_element_type.emplace(
+                                EGM::ElementInfo<First>::name(), 
+                                BaseManager::template ElementType<First>::result
+                            );
+                        server.element_types_to_name.emplace(
+                                BaseManager::template ElementType<First>::result,
+                                EGM::ElementInfo<First>::name()
+                            );
+                    }
+                    
+                    fill_names_to_element_type<EGM::TemplateTypeList<Rest...>>::fill(server);
+                }
+            };
+
+            template <class Dummy>
+            struct fill_names_to_element_type<EGM::TemplateTypeList<>, Dummy> {
+                static void fill(GenerativeManager&) {}
+            };
         public:
             GenerativeManager() {
                 // link to serialization policy, also causes compiler
                 // error with improper config (no GenerativeSerializationPolicy in base hierarchy)
                 BaseManager::m_generative_manager = this;
+                fill_names_to_element_type<typename BaseManager::Types>::fill(*this);    
             }
 
             // generate a new MetaManager to manage at a higher level of abstraction

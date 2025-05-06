@@ -21,6 +21,7 @@
 #include <iomanip>
 #include <errno.h>
 #include <string.h>
+#include <format>
 
 #ifdef WIN32
 typedef size_t ssize_t;
@@ -65,6 +66,7 @@ std::optional<std::string> receive_message(int socket) {
     bytes_read = 0;
     while ((bytes_read += recv(socket, message_buffer + bytes_read, message_size_buffer - bytes_read, 0)) < message_size_buffer) {}
     std::string message_string = std::move(message_buffer);
+    free(message_buffer);
     return message_string;
 }
 }
@@ -125,8 +127,9 @@ void UmlServer::handleMessage(ID id, std::string buff) {
     log("server got message from client(" + id.string() + "):\n" + std::string(buff));
 
     if (buff == "KILL") {
-        // m_msgV = true;
-        // m_msgCv.notify_one();
+        std::string kill_response = "{\"shutdown\":\"success\"}";
+        log(kill_response);
+        send_message(info.socket, kill_response);
         info.handlerCv.notify_one();
         shutdownServer();
         return;
@@ -137,15 +140,17 @@ void UmlServer::handleMessage(ID id, std::string buff) {
         node = YAML::Load(buff);
     } catch (std::exception& e) {
         log(e.what());
-        std::string msg = std::string("{ERROR: ") + std::string(e.what()) + std::string("}");
-        send(info.socket, msg.c_str(), msg.length() , 0);
+        std::string msg = std::string("{\"error\": ") + std::string(e.what()) + std::string("}");
+        log(msg);
+        send_message(info.socket, msg);
         return;
     }   
     
     if (!node.IsMap()) {
         log("ERROR receiving message from client, invalid format!\nMessage:\n" + buff);
-        std::string msg = std::string("{\"ERROR\":\"") + std::string("ERROR receiving message from client, invalid format!\nMessage:\n" + buff) + std::string("\"}");
-        send(info.socket, msg.c_str(), msg.length() , 0);
+        std::string msg = std::string("{\"error\":\"") + std::string("ERROR receiving message from client, invalid format!\nMessage:\n" + buff) + std::string("\"}");
+        log(msg);
+        send_message(info.socket, msg);
         return;
     }
     if (node["DELETE"] || node["delete"]) {
@@ -154,6 +159,9 @@ void UmlServer::handleMessage(ID id, std::string buff) {
 
         if (!delete_node.IsScalar()) {
             log("bad formatting for delete request!");
+            std::string error_message = "{\"error\":\"Delete requests need to be in the format {\"delete\":id}\"}";
+            log(error_message);
+            send_message(info.socket, error_message);
             return;
         }
 
@@ -181,8 +189,10 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             elID = std::get<ID>(parse_result->first);
         } else {
             log("bad delete request, must specify an id!");
+            std::string error_message = "{\"error\":\"Could not parse id in delete request\"}";
+            log(error_message);
+            send_message(info.socket, error_message);
             return;
-            // url = std::get<std::string>(parse_result->first);
         }
 
 
@@ -201,8 +211,17 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                 m_numEls--;
             } catch (std::exception& e) {
                 log("exception encountered when trying to delete element: " + std::string(e.what()));
+                std::string error_message = std::format("{{\"error\":\"{}\"}}", e.what());
+                log(error_message);
+                send_message(info.socket, error_message);
+                return;
             }
         }
+
+        // send reply
+        std::string reply_message = "{\"status\":\"success\"}";
+        log(reply_message);
+        send_message(info.socket, reply_message);
     } else if (node["DUMP"] || node["dump"]) {
         std::string dump = this->dumpYaml();
         send_message(info.socket, dump);
@@ -212,6 +231,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             std::string msg = "{\"error\":\"invalid generate request, must be a scalar of an id to generate!\"}"; 
             send_message(info.socket, msg);
             log(msg);
+            return;
         } else {
             // generate the meta manager, send id of manager back
             ID generation_root_id = ID::fromString(node["generate"].as<std::string>());
@@ -231,6 +251,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             std::string msg = "{\"error\":\"invalid format for get request! Must be formatted as a scalar string!\"}";
             send_message(info.socket, msg);
             log(msg);
+            return;
         } else {
             // parse id and parameters from request
             auto parse_result = parse_id_and_parms(getNode.as<std::string>());
@@ -282,16 +303,19 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             } catch (std::exception& e) {
                 log(e.what());
                 std::string msg = std::string("{\"ERROR\":\"") + std::string(e.what()) + std::string("\"}");
+                log(msg);
                 send_message(info.socket, msg);
+                return;
             } 
         }
     } else if (node["POST"] || node["post"]) {
         log("server handling post request from client " + id.string());
         try {
+            ID id;
             auto postNode = node["POST"] ? node["POST"] : node["post"];
             if (postNode.IsScalar()) {
                 std::size_t type = names_to_element_type.at((node["POST"] ? node["POST"] : node["post"]).as<std::string>());
-                ID id = ID::fromString(node["id"].as<std::string>());
+                id = ID::fromString(node["id"].as<std::string>());
                 ElementPtr ret = 0;
                 ret = create(type);
                 ret->setID(id);
@@ -303,11 +327,13 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                         case NOT_SCALAR: {
                             std::string msg = "{\"error\":\"post request improperly formatted, manager must be a scalar!\"}";
                             log(msg);
+                            send_message(info.socket, msg);
                             return;
                         }
                         case NOT_ID: {
                             std::string msg = "{\"error\":\"post request manager not a valid id!\"}";
                             log(msg);
+                            send_message(info.socket, msg);
                             return;
                         }
                     }
@@ -330,11 +356,13 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                             case NOT_SCALAR: {
                                 std::string msg = "{\"error\":\"post request improperly formatted, manager must be a scalar!\"}";
                                 log(msg);
+                                send_message(info.socket, msg);
                                 return;
                             }
                             case NOT_ID: {
                                 std::string msg = "{\"error\":\"post request manager not a valid id!\"}";
                                 log(msg);
+                                send_message(info.socket, msg);
                                 return;
                             }
                         }
@@ -378,27 +406,41 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                         }
                         created_element = ret;
                     } else {
-                        throw ManagerStateException("Must specify type when posting a uml element");
+                        std::string msg = "{\"error\":\"Must specify type when posting a uml element\"}";
+                        log(msg);
+                        send_message(info.socket, msg);
+                        return;
                     }
                 }
 
                 if (postNode["id"]) {
-                    created_element->setID(ID::fromString(postNode["id"].as<std::string>()));
+                    id = ID::fromString(postNode["id"].as<std::string>());
+                    created_element->setID(id);
                     log("set id of posted element to " + created_element.id().string());
                 }
             }
             log("server created new element for client" + id.string());
+            std::string reply_message = "{\"status\":\"success\"}";
+            send_message(info.socket, reply_message);
             std::lock_guard<std::mutex> garbageLck(m_garbageMtx);
             m_releaseQueue.push_front(id);
             m_garbageCv.notify_one();
         } catch (std::exception& e) {
-            log("server could not create new element for client " + id.string() + ", exception with request: " + std::string(e.what()));
+            std::string error_message = std::format(
+                    "{{\"error\":\"server could not create new element for client {} exception with request: {}\"}}",
+                    id.string(),
+                    e.what()
+                );
+            log(error_message);
+            send_message(info.socket, error_message);
+            return;
         }
     } else if (node["PUT"] || node["put"]) {
         YAML::Node putNode = (node["PUT"] ? node["PUT"] : node["put"]);
         if (!putNode.IsMap()) {
             std::string msg = "{\"error\":\"Improper formatting for put request! Must be a map!\"}";
             log(msg);
+            send_message(info.socket, msg);
             return;
         }
 
@@ -407,12 +449,14 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             if (!manager_node.IsScalar()) {
                 std::string error_msg = "{\"error\":\"Bad format for put request manager field! Must be a scalar id!\"}";
                 log(error_msg);
+                send_message(info.socket, error_msg);
                 return;
             }
             
             if (!ID::isValid(manager_node.as<std::string>())) {
                 std::string error_msg = "{\"error\":\"Bad format for put request manager field! Improper id format!\"}";
                 log(error_msg);
+                send_message(info.socket, error_msg);
                 return;
             }
 
@@ -420,6 +464,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             if (!element_node.IsMap()) {
                 std::string error_msg = "{\"error\":\"Bad format for put request element field! Field must be a map!\"}";
                 log(error_msg);
+                send_message(info.socket, error_msg);
                 return;
             }
 
@@ -450,8 +495,17 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                 log("server put element " + el.id().string() + " successfully for client " + id.string());
             } catch (std::exception& e) {
                 log("Error parsing PUT request: " + std::string(e.what()));
+                std::string error_message = std::format(
+                        "{{\"error\":\"Error parsing put request {}\"}}",
+                        e.what()    
+                    );
+                send_message(info.socket, error_message);
+                return;
             }
         }
+        std::string reply_message = "{\"status\":\"success\"}";
+        log(reply_message);
+        send_message(info.socket, reply_message);
     } else if (node["SAVE"] || node["save"]) {
         YAML::Node saveNode = (node["SAVE"] ? node["SAVE"] : node["save"]);
         std::string path = saveNode.as<std::string>();
@@ -463,12 +517,22 @@ void UmlServer::handleMessage(ID id, std::string buff) {
             }
         } catch (std::exception& e) {
             log("ERROR saving element, error: " + std::string(e.what()));
+            std::string error_message = std::format(
+                    "{{\"error\":\"error saving element: {}\"}}",
+                    e.what()    
+                );
+            send_message(info.socket, error_message);
+            return;
         }
         log("saved element to " + path);
+        std::string reply_message = "{\"status\":\"success\"}";
+        log(reply_message);
+        send_message(info.socket, reply_message);
     } else {
         log("ERROR receiving message from client, invalid format!\nMessage:\n" + buff);
-        std::string msg = std::string("{ERROR: ") + std::string("ERROR receiving message from client, invalid format!\nMessage:\n" + buff) + std::string("}");
-        send(info.socket, msg.c_str(), msg.length() , 0);
+        std::string msg = "{\"error\":\"ERROR receiving message from client, invalid format!\"}";
+        send_message(info.socket, msg);
+        return;
     }
     log("Done processing message");
 }
@@ -723,7 +787,6 @@ void UmlServer::log(std::string msg) {
 }
 
 UmlServer::UmlServer(int port, bool deferStart) {
-    fill_names_to_element_type<UmlTypes>::fill(*this);    
     m_port = port;
     if (!deferStart) {
         start();

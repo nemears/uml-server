@@ -86,25 +86,7 @@ namespace UML {
             std::condition_variable m_zombieCv;
             std::mutex m_messageHandlerMtx;
             
-            std::unordered_map<std::string, std::size_t> names_to_element_type;
-
-            template <class List, class Dummy = void>
-            struct fill_names_to_element_type;
-
-            template <template <class> class First, template <class> class ... Rest, class Dummy>
-            struct fill_names_to_element_type<EGM::TemplateTypeList<First, Rest...>, Dummy> {
-                static void fill(UmlServer& server) {
-                    if constexpr (!UmlServer::IsAbstract<First>{})
-                        server.names_to_element_type.emplace(EGM::ElementInfo<First>::name(), UmlServer::ElementType<First>::result);
-                    
-                    fill_names_to_element_type<EGM::TemplateTypeList<Rest...>>::fill(server);
-                }
-            };
-
-            template <class Dummy>
-            struct fill_names_to_element_type<EGM::TemplateTypeList<>, Dummy> {
-                static void fill(UmlServer&) {}
-            };
+            
 
         protected:
             void closeClientConnections(ClientInfo& client);

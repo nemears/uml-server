@@ -41,6 +41,7 @@ void UmlClient::setRoot(AbstractElementPtr root) {
         "id" << YAML::Value << root->getID().string() << YAML::Key << "qualifiedName" << YAML::Value << "" << 
         YAML::Key << "element" << YAML::Value << YAML::Load(emitIndividual(dynamic_cast<UmlClient::BaseElement&>(*root))) << YAML::EndMap << YAML::EndMap;
     sendEmitter(m_socketD, emitter);
+    receive_and_check_reply();
 }
 
 }

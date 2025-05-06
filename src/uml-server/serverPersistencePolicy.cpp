@@ -10,11 +10,23 @@
 #include "uml-server/generativeManager.h"
 #include "uml-server/umlServer.h"
 #include <future>
+#include <format>
 
 using namespace std;
 using namespace EGM;
 
 namespace UML {
+
+void ServerPersistencePolicy::create_storage(AbstractElement& el) {
+    std::string post_request = std::format(
+                "{{\"post\":{{\"type\":\"{}\",\"id\":\"{}\"}}}}",
+                element_types_to_name.at(el.getElementType()),
+                el.getID().string()
+            );
+    send_message(m_socketD, post_request);
+    receive_and_check_reply();
+}
+
 
 void ServerPersistencePolicy::sendEmitter(int socket, YAML::Emitter& emitter) {
     string emitter_string(emitter.c_str());
@@ -33,6 +45,20 @@ std::string ServerPersistencePolicy::loadElementData(ID id) {
     return *receive_message(m_socketD);
 }
 
+void ServerPersistencePolicy::receive_and_check_reply() const {
+    auto reply = *receive_message(m_socketD);
+    YAML::Node reply_json = YAML::Load(reply);
+    if (reply_json["error"]) {
+        throw ManagerStateException(std::format("received error from server: {}", reply_json["error"].as<std::string>()));
+    }
+    if (!reply_json["status"]) {
+        throw ManagerStateException("no success status in reply from server!");
+    }
+    if (reply_json["status"].as<std::string>() != "success") {
+        throw ManagerStateException("status from server is not success!");
+    }
+}
+
 void ServerPersistencePolicy::saveElementData(std::string data, ID id) {
     YAML::Emitter emitter;
     emitter << YAML::DoubleQuoted << YAML::Flow << YAML::BeginMap << 
@@ -40,7 +66,7 @@ void ServerPersistencePolicy::saveElementData(std::string data, ID id) {
         "id" << YAML::Value << id.string() << YAML::Key << "element" << YAML::Value << 
         YAML::Load(data) << YAML::EndMap << YAML::EndMap;
     sendEmitter(m_socketD, emitter);
-    // TODO restore qualified name and not loading twice
+    receive_and_check_reply();
 }
 
 std::string ServerPersistencePolicy::getProjectData(std::string path) {
@@ -58,12 +84,14 @@ void ServerPersistencePolicy::saveProjectData(std::string data, std::string path
     YAML::Emitter emitter;
     emitter << YAML::DoubleQuoted << YAML::Flow << YAML::BeginMap << YAML::Key << "save" << YAML::Value << "." << YAML::EndMap;
     sendEmitter(m_socketD, emitter);
+    receive_and_check_reply();
 }
 
 void ServerPersistencePolicy::saveProjectData(std::string data) {
     YAML::Emitter emitter;
     emitter << YAML::DoubleQuoted << YAML::Flow << YAML::BeginMap << YAML::Key << "save" << YAML::Value << "." << YAML::EndMap;
     sendEmitter(m_socketD, emitter);
+    receive_and_check_reply();
 }
 
 void ServerPersistencePolicy::eraseEl(ID id) {
@@ -72,6 +100,7 @@ void ServerPersistencePolicy::eraseEl(ID id) {
         YAML::Key << "DELETE" << YAML::Value << id.string() << 
     YAML::EndMap;
     sendEmitter(m_socketD, emitter);
+    receive_and_check_reply();
 }
 
 AbstractElementPtr ServerPersistencePolicy::reindex(ID oldID, ID newID) {

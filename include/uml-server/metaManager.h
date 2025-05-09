@@ -201,7 +201,8 @@ namespace UML {
     class MetaManager : public EGM::Manager<EGM::TemplateTypeList<MetaElement>, EGM::SerializedStoragePolicy<MetaElementSerializationPolicy, EGM::FilePersistencePolicy>> {
         friend struct MetaElementSerializationPolicy;
         template <class>
-        friend class GenerativeManager;
+        friend class GenerativeManager; // TODO maybe move all of this inside generative manager as an inner class
+        friend class UmlServer;
         private:
             using BaseManager = EGM::Manager<EGM::TemplateTypeList<MetaElement>, EGM::SerializedStoragePolicy<MetaElementSerializationPolicy, EGM::FilePersistencePolicy>>;
         protected:
@@ -242,6 +243,10 @@ namespace UML {
                 m_meta_elements.insert(newID);
 
                 // delete old instance, and set it up again with new id
+                auto overwritten_element = m_storage_root->getPackagedElements().get(newID);
+                if (overwritten_element){
+                    m_uml_manager.erase(*overwritten_element);
+                }
                 m_uml_manager.erase(*meta_element->uml_representation);
                 create_uml_representation(meta_element);
                 

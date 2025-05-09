@@ -58,7 +58,7 @@ TEST_F(GenerativeManagerTest, basicParseStereotypedElement) {
     auto& meta_manager = m.get_meta_manager(meta_manager_id);
     auto foo_inst = meta_manager.create(foo_type.id());
     auto data_to_parse = std::format(
-            R"""({{"Class": {{"id": "9RdVAhZvBM47eAupfq2VlFQ6xrN1", "appliedStereotypes": [{{"manager": "{}", "data": {{"Bar": {{"id": "B2cK0xejNdMUwnC8XcY4HVvnt1c&", "foo": ["{}"]}}}}}}], "name": "meow"}}}})""",
+            R"""({{"Class": {{"id": "9RdVAhZvBM47eAupfq2VlFQ6xrN1", "appliedStereotypes": [{{"manager": "{}", "data": {{"Bar": {{"id": "B2cK0xejNdMUwnC8XcY4HVvnt1c-", "foo": ["{}"]}}}}}}], "name": "meow"}}}})""",
             meta_manager_id.string(),
             foo_inst.id().string()
     ); 

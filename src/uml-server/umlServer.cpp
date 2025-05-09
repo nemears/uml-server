@@ -472,7 +472,7 @@ void UmlServer::handleMessage(ID id, std::string buff) {
 
             auto el = meta_manager.parse_node(element_node);
             if (el) {
-                restoreElAndOpposites(el);
+                meta_manager.restoreElAndOpposites(el);
             }
             log("put element " + el.id().string() + " to meta manager " + manager_node.as<std::string>() + " for client " + id.string() + " succesfully!");
         } else {

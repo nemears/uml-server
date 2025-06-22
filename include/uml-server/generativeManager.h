@@ -1,7 +1,7 @@
 #pragma once
 
 #include "uml/uml-stable.h"
-#include "metaManager.h"
+#include "metaManager/metaManager.h"
 
 namespace UML {
 

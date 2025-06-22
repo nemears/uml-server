@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "uml-server/generativeManager.h"
+#include "uml-server/constants.h"
 #include <format>
 
 using namespace UML;
@@ -26,6 +27,39 @@ void setup_foo_bar_profile(BasicGenerativeManager& m) {
     foo_property->setType(foo_type);
     profile->getPackagedElements().add(stereotype);
     stereotype->getOwnedAttributes().add(foo_property);
+}
+
+TEST_F(GenerativeManagerTest, basicEmitString) {
+    BasicGenerativeManager m;
+    m.open(std::format("{}", PROJECT_TEMPLATE));
+    auto clazz = m.create<Class>();
+    auto string_property = m.create<Property>();
+    clazz->setName("foo");
+    string_property->setName("blob");
+    string_property->setType(m.get(string_type_id));
+    clazz->getOwnedAttributes().add(string_property);
+    ID meta_manager_id = m.generate(*clazz);
+    auto& meta_manager = m.get_meta_manager(meta_manager_id);
+    auto foo = meta_manager.create(clazz.id());
+    foo->data.at(string_property.id())->setData("fox");
+    auto expected_emit = std::format("{{\"foo\":{{\"id\":{},\"blob\":\"fox\"}}}}", foo.id().string());
+}
+
+TEST_F(GenerativeManagerTest, basicParseString) {
+    BasicGenerativeManager m;
+    m.open(std::format("{}", PROJECT_TEMPLATE));
+    auto clazz = m.create<Class>();
+    auto string_property = m.create<Property>();
+    clazz->setName("foo");
+    string_property->setName("blob");
+    string_property->setType(m.get(string_type_id));
+    clazz->getOwnedAttributes().add(string_property);
+    ID meta_manager_id = m.generate(*clazz);
+    auto& meta_manager = m.get_meta_manager(meta_manager_id); 
+    auto parse_data = "{\"foo\":{\"blob\":\"fox\"}}";
+    auto parse_data_json = YAML::Load(parse_data);
+    auto foo = meta_manager.parse_node(parse_data_json);
+    ASSERT_EQ(foo->data.at(string_property.id())->getData(), "fox");
 }
 
 TEST_F(GenerativeManagerTest, basicEmitStereotypedElement) {
@@ -105,4 +139,29 @@ TEST_F(GenerativeManagerTest, subsetUmlProperty) {
     squirell_data->getSet(nut_property.id()).add(nut_data);
 
     ASSERT_EQ(squirell_inst->getPackagedElements().size(), 1);
+}
+
+TEST_F(GenerativeManagerTest, referenceUmlElement) {
+    BasicGenerativeManager m;
+    
+    m.open(std::format("{}", PROJECT_TEMPLATE));
+
+    // create types
+    auto the_type = m.create<Class>();
+    auto uml_typed_property = m.create<Property>();
+
+    the_type->setName("TestType");
+    uml_typed_property->setType(element_type_id);
+    uml_typed_property->setName("umlElement");
+    the_type->getOwnedAttributes().add(uml_typed_property);
+
+    ID meta_manager_id = m.generate(*the_type);
+    auto& meta_manager = m.get_meta_manager(meta_manager_id);
+
+    auto type_inst = meta_manager.create(the_type.id());
+    auto uml_package = m.create<Package>();
+    type_inst->getSet(uml_typed_property.id()).add(uml_package);
+
+    ASSERT_TRUE(type_inst->getSet(uml_typed_property.id()).front());
+    ASSERT_EQ(type_inst->getSet(uml_typed_property.id()).front().id(), uml_package.id());
 }

@@ -73,6 +73,7 @@ vector<ManagedPtr<AbstractElement>> GenerativeSerializationPolicy::parseWhole(st
             ID uml_generation_root_id = process_id_node(meta_manager_node["uml_root"]);
             ID meta_manager_id = process_id_node(meta_manager_node["id"]);
             MetaManager& meta_manager = m_generative_manager->m_meta_managers.emplace(meta_manager_id, ManagedPtr<BaseElement>(m_generative_manager->abstractGet(uml_generation_root_id))->as<Package>()).first->second;
+            meta_manager.m_storage_root->setID(meta_manager_id);
             
             auto data_node = meta_manager_node["data"];
             string data_node_line = to_string(data_node.Mark().line);
@@ -101,12 +102,14 @@ string GenerativeSerializationPolicy::emitWhole(AbstractElement& el) {
     emitter << YAML::Key << "meta_managers" << YAML::Value;
     emitter << YAML::BeginSeq;
     for (auto& meta_manager_pair : m_generative_manager->m_meta_managers) {
+        emitter << YAML::BeginMap;
         ID manager_id = meta_manager_pair.first;
         MetaManager& meta_manager = meta_manager_pair.second;
         emitter << YAML::Key << "uml_root" << YAML::Value << meta_manager.get_generation_root().id().string();
         emitter << YAML::Key << "id" << YAML::Value << manager_id.string();
         emitter << YAML::Key << "data";
         meta_manager.dump_all_data(emitter);
+        emitter << YAML::EndMap;
     }
     emitter << YAML::EndSeq;
     emitter << YAML::EndMap;

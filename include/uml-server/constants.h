@@ -4,6 +4,99 @@
 
 namespace UML {
     // Ids relevant to a uml meta manager
+    
+    // meta types for uml
+    const EGM::ID association_type_id = EGM::ID::fromString("thwOzkNWxyNS173nicaNAgtMOxdT");
+    const EGM::ID class_type_id = EGM::ID::fromString("qyMDE1FPSey_RdXCjwifMXS70MiF");
+    const EGM::ID classifier_type_id = EGM::ID::fromString("13wa8TtmphWD1reWGwNUhyS0Rk9y");
+    const EGM::ID comment_type_id = EGM::ID::fromString("zltysmxidp1ci2PhAz9mrG_GgVna");
+    const EGM::ID connectable_element_type_id = EGM::ID::fromString("GbrzuIyDPnXa86lVHBgbWGUKYfaE");
+    const EGM::ID data_type_type_id = EGM::ID::fromString("taZDRFlyHumZS94qEHGMIXWDi-pE");
+    const EGM::ID dependency_type_id = EGM::ID::fromString("SPwEe86n-OnH2AJBALFk7qNGzOLd");
+    const EGM::ID directed_relationship_type_id = EGM::ID::fromString("6GWi2oAkBrSYm1ZjpmJprB_Fhirv");
+    const EGM::ID element_type_id = EGM::ID::fromString("XI35viryLd5YduwnSbWpxSs3npcu");
+    const EGM::ID encapsulated_classifier_type_id = EGM::ID::fromString("E1UQWIIkowAMd5v62ARHi2cEvbDR");
+    const EGM::ID enumeration_type_id = EGM::ID::fromString("C4f1r16PLhBqvIYXPyqcs22lQZUw");
+    const EGM::ID enumeration_literal_type_id = EGM::ID::fromString("31iTIAGgHNByNnW0zvxM5AwXxsAl");
+    const EGM::ID extension_type_id = EGM::ID::fromString("hDFC8hvr-D7CQLrTE8tvipQ7tz_8");
+    const EGM::ID extension_end_type_id = EGM::ID::fromString("O_7HEQc9Z9tCgUGdg51Y8sMf64MG");
+    const EGM::ID feature_type_id = EGM::ID::fromString("P26npn-Eihvfc8wmGIJzB4XMbXDl");
+    const EGM::ID generalization_type_id = EGM::ID::fromString("uprxxN9V5lyTmO3X4MxPjYU1LBLU");
+    const EGM::ID instance_specification_type_id = EGM::ID::fromString("3jGx_iRKqVpRXsyRTC7Kddvjs1iB");
+    const EGM::ID instance_value_type_id = EGM::ID::fromString("82o7Q_hCNaAWLHKhDoFKpR6reyeu");
+    const EGM::ID literal_boolean_type_id = EGM::ID::fromString("7ixjcT51wpUzjtmV-oc93icC1X1w");
+    const EGM::ID literal_integer_type_id = EGM::ID::fromString("wI3M3uikz0z6QHpVNIJrta1ROmQc");
+    const EGM::ID literal_null_type_id = EGM::ID::fromString("d_rlIDJLRy1o061SE8A0WU1mSm2R");
+    const EGM::ID literal_real_type_id = EGM::ID::fromString("ZHCpZ-iaDFbAF8_vU1_epYPWVGbq");
+    const EGM::ID literal_specification_type_id = EGM::ID::fromString("wGvs2ha18hTJkgUJjn0QqIjtnmR3");
+    const EGM::ID literal_string_type_id = EGM::ID::fromString("7MtxvK9LN2LFLvG5y6zxPPCuwZYC");
+    const EGM::ID literal_unlimited_natural_type_id = EGM::ID::fromString("I7xHkZlJjKY1nnldgTKowujN3UDq");
+    const EGM::ID multiplicity_element_type_id = EGM::ID::fromString("2MX9sVvjWDKkGFCl6jSEYTeJfCgn");
+    const EGM::ID named_element_type_id = EGM::ID::fromString("Ox30_bFSsGtPZorPYOkDTLeXquIN");
+    const EGM::ID namespace_type_id = EGM::ID::fromString("pUg_kaODi6D0KMi6MXAJcMWMG3G_");
+    const EGM::ID package_type_id = EGM::ID::fromString("zvAhfu-WNCI1cNXd3BkqhxywHAYY");
+    const EGM::ID packageable_element_type_id = EGM::ID::fromString("-ve0WKXZ2Hn47xMl-Dl-lXPTMHD9");
+    const EGM::ID parameterable_element_type_id = EGM::ID::fromString("SCmsyxfK3rkeBWVbS0iMxZ4nykK8");
+    const EGM::ID primitive_type_element_type_id = EGM::ID::fromString("20NUBfbj9jj4c3qH8Af2K0lZnbN4");
+    const EGM::ID profile_type_id = EGM::ID::fromString("SDtG5vVuoYtsaMKtqM-CcWxaXEKY");
+    const EGM::ID property_type_id = EGM::ID::fromString("9On4aqWFEGwEw6rway7E_8_spRrc");
+    const EGM::ID redefinable_element_type_id = EGM::ID::fromString("yrjlltCbvz7t4VVSLU5d3cKO41Va");
+    const EGM::ID relationship_type_id = EGM::ID::fromString("QUowokvKRwjZYrwmci655pJh1OeW");
+    const EGM::ID slot_type_id = EGM::ID::fromString("J2fEvc8IAzFjpPZqvms_gccefSfy");
+    const EGM::ID stereotype_type_id = EGM::ID::fromString("0XAr-hQb_xP_SNVNuo6Wybk7DY2y");
+    const EGM::ID structural_feature_type_id = EGM::ID::fromString("bkUfoeGEZRF52nRUXqshHTpVqFmX");
+    const EGM::ID structured_classifier_type_id = EGM::ID::fromString("5nN3bNaJ9L8Z1ArCUolvqnyTO0jY");
+    const EGM::ID type_type_id = EGM::ID::fromString("G9SsXu7xbMEGASAD0WV8izcwtBap");
+    const EGM::ID typed_element_type_id = EGM::ID::fromString("Lv5Oi488I7QTIk0BDJMxK4ckAf4R");
+    const EGM::ID value_specification_type_id = EGM::ID::fromString("Qn4wyzpcn06v3cpAbR1QPvSqYrZ_");
+
+    const std::unordered_set<EGM::ID> uml_meta_types = {
+        association_type_id,
+        class_type_id,
+        classifier_type_id,
+        comment_type_id,
+        connectable_element_type_id,
+        data_type_type_id,
+        dependency_type_id,
+        directed_relationship_type_id,
+        element_type_id,
+        encapsulated_classifier_type_id,
+        enumeration_type_id,
+        enumeration_literal_type_id,
+        extension_type_id,
+        extension_end_type_id,
+        feature_type_id,
+        generalization_type_id,
+        instance_specification_type_id,
+        instance_value_type_id,
+        literal_boolean_type_id,
+        literal_integer_type_id,
+        literal_null_type_id,
+        literal_real_type_id,
+        literal_specification_type_id,
+        literal_string_type_id,
+        literal_unlimited_natural_type_id,
+        multiplicity_element_type_id,
+        named_element_type_id,
+        namespace_type_id,
+        package_type_id,
+        packageable_element_type_id,
+        parameterable_element_type_id,
+        primitive_type_element_type_id,
+        profile_type_id,
+        property_type_id,
+        redefinable_element_type_id,
+        relationship_type_id,
+        slot_type_id,
+        stereotype_type_id,
+        structural_feature_type_id,
+        structured_classifier_type_id,
+        type_type_id,
+        typed_element_type_id,
+        value_specification_type_id
+    };
+
+    // primitive types
     const EGM::ID boolean_type_id = EGM::ID::fromString("bool_bzkcabSy3CiFd-HmJOtnVRK");
     const EGM::ID integer_type_id = EGM::ID::fromString("int_r9nNbBukx47IomXrT2raqtc4");
     const EGM::ID real_type_id = EGM::ID::fromString("real_aZG-w6yl61bXVWutgeyScN9");

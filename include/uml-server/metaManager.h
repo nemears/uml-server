@@ -97,7 +97,10 @@ namespace UML {
                 
                 auto run_set_policies = [this, meta_ptr] (EGM::AbstractSet& set) {
                     if (dynamic_cast<MetaElementSetPolicy<Policy>*>(&set)) {
-                        this->run_add_policy_for_set(set, *meta_ptr);
+                        // if it's not a meta_ptr don't run the policy we can keep track of it
+                        if (meta_ptr) {
+                            this->run_add_policy_for_set(set, *meta_ptr);
+                        }
                     } else {
                         // it is a uml set
                         this->run_add_policy_for_set(set, *meta_ptr->applying_element);
@@ -133,12 +136,15 @@ namespace UML {
     struct MetaElementSetPolicy {
         EGM::ManagerTypes<UmlTypes>* uml_manager;
         UmlManager::Pointer<Slot> uml_slot;
+        EGM::ID default_value;
         using MetaElementImpl = typename Policy::manager::Implementation<MetaElement>;
         void elementAdded(MetaElementImpl& el, MetaElementImpl& me) {
             // update slot
-            auto inst_val = uml_manager->create<InstanceValue>();
-            inst_val->setInstance(uml_manager->abstractGet(el.getID()));
-            uml_slot->getValues().add(inst_val);
+            if (uml_slot) {
+                auto inst_val = uml_manager->create<InstanceValue>();
+                inst_val->setInstance(uml_manager->abstractGet(el.getID()));
+                uml_slot->getValues().add(inst_val);
+            }
         }
         void elementRemoved(MetaElementImpl& el, MetaElementImpl& me) {
             // update slot
@@ -182,29 +188,50 @@ namespace EGM {
             }
             return ret;
         }
+        using MetaElementDataList = std::vector<std::pair<std::string, AbstractDataPolicy*>>; 
+        template <class Policy>
+        static  MetaElementDataList data(UML::MetaElement<Policy>& el) {
+            MetaElementDataList ret;
+            ret.reserve(el.data.size());
+            for (auto& pair : el.data) {
+                UML::UmlManager::Pointer<UML::Property> prop = get_element_from_uml_manager(&el, pair.first);
+                ret.push_back(std::make_pair<std::string, AbstractDataPolicy*>(prop->getName(), pair.second.get()));
+            }
+            return ret;
+        }
     };
 }
 
 namespace UML {
 
-    struct MetaElementSerializationPolicy : public EGM::YamlSerializationPolicy<EGM::TemplateTypeList<MetaElement>> {
+    struct MetaElementSerializationPolicy : public EGM::JsonSerializationPolicy<EGM::TemplateTypeList<MetaElement>> {
         protected:
             MetaManager* m_meta_manager;
             EGM::AbstractElementPtr parseNode(YAML::Node node) override;
-            EGM::AbstractElementPtr parse_meta_element_node(YAML::Node node, std::function<EGM::AbstractElementPtr(std::size_t)> f);
+            EGM::AbstractElementPtr parse_meta_element_node(YAML::Node node, std::function<EGM::AbstractElementPtr(std::size_t, EGM::ID)> f);
             void emitIndividual(YAML::Emitter& emitter, EGM::AbstractElement& el) override;
             std::string emitIndividual(EGM::AbstractElement& el) override { 
-                return EGM::YamlSerializationPolicy<EGM::TemplateTypeList<MetaElement>>::emitIndividual(el);
+                return EGM::JsonSerializationPolicy<EGM::TemplateTypeList<MetaElement>>::emitIndividual(el);
             }
     };
 
-    class MetaManager : public EGM::Manager<EGM::TemplateTypeList<MetaElement>, EGM::SerializedStoragePolicy<MetaElementSerializationPolicy, EGM::FilePersistencePolicy>> {
+    struct MetaElementStoragePolicy {
+        EGM::AbstractElementPtr loadElement(EGM::ID id);
+        void saveElement(EGM::AbstractElement& el);
+        void eraseEl(EGM::ID id);
+        protected:
+            MetaManager* m_meta_manager;
+    };
+
+    class MetaManager : public EGM::Manager<EGM::TemplateTypeList<MetaElement>, MetaElementStoragePolicy>, public MetaElementSerializationPolicy {
         friend struct MetaElementSerializationPolicy;
         template <class>
         friend class GenerativeManager; // TODO maybe move all of this inside generative manager as an inner class
         friend class UmlServer;
+        friend class MetaElementStoragePolicy;
+        friend class GenerativeSerializationPolicy;
         private:
-            using BaseManager = EGM::Manager<EGM::TemplateTypeList<MetaElement>, EGM::SerializedStoragePolicy<MetaElementSerializationPolicy, EGM::FilePersistencePolicy>>;
+            using BaseManager = EGM::Manager<EGM::TemplateTypeList<MetaElement>, MetaElementStoragePolicy>;
         protected:
             using MetaElementPtr = BaseManager::Pointer<MetaElement>;
             using MetaElementImpl = BaseManager::Implementation<MetaElement>;
@@ -215,18 +242,41 @@ namespace UML {
             std::unordered_map<EGM::ID, std::size_t> m_id_to_type;
             std::unordered_map<std::string, std::size_t> m_name_to_type;
             std::unordered_set<EGM::ID> m_meta_elements;
+            std::unordered_map<EGM::ID, UmlManager::Pointer<Element>> m_stereotyped_elements;
 
         public:
             MetaManager(UmlManager::Implementation<Element>& abstraction_root);
-            std::size_t get_type_by_name(std::string name) { return m_name_to_type.at(name); }
+            std::optional<std::size_t> get_type_by_name(std::string name) { 
+                auto match = m_name_to_type.find(name);
+                if (match != m_name_to_type.end()) {
+                    return match->second;
+                }
+                return std::nullopt;
+            }
+            std::optional<std::size_t> get_type_with_id(EGM::ID id) const { 
+                auto match = m_id_to_type.find(id); 
+                if (match != m_id_to_type.end()) {
+                    return match->second;
+                }
+                return std::nullopt;
+            }
+            UmlManager::Pointer<Element> get_stereotyped_element(EGM::ID id) const {
+                auto match = m_stereotyped_elements.find(id);
+                if (match != m_stereotyped_elements.end()) {
+                    return match->second;
+                }
+                return UmlManager::Pointer<Element>();
+            }
             UmlManager::Pointer<Element> get_generation_root() const { return m_generation_root; }
         private:
             // create_meta_element
             // element_type - element_type of meta_element
             // applying_element - pointer (can be null) to element applying meta_element to as stereotype
             // return - the meta_element created as a ptr
+            BaseManager::Pointer<MetaElement> create_meta_element_object(std::size_t element_type, UmlManager::Pointer<Element> applying_element);
             EGM::AbstractElementPtr create_meta_element(std::size_t element_type, UmlManager::Pointer<Element> applying_element);
             void create_uml_representation(MetaManager::Pointer<MetaElement> meta_element);
+            EGM::ID next_id; // id used for create
         public:
 
             EGM::AbstractElementPtr create(std::size_t elementType) override {
@@ -247,9 +297,11 @@ namespace UML {
                 if (overwritten_element){
                     m_uml_manager.erase(*overwritten_element);
                 }
-                m_uml_manager.erase(*meta_element->uml_representation);
-                create_uml_representation(meta_element);
-                
+                if (meta_element->uml_representation) {
+                    m_uml_manager.erase(*meta_element->uml_representation);
+                    
+                    create_uml_representation(meta_element);
+                }
                 return meta_element;
             }
 
@@ -257,8 +309,28 @@ namespace UML {
                 return create(m_id_to_type.at(id));
             }
 
+            MetaElementPtr create(EGM::ID type_id, EGM::ID element_id) {
+                next_id = element_id;
+                return create(type_id);
+            }
+
+            MetaElementPtr create(std::size_t type, EGM::ID element_id) {
+                next_id = element_id;
+                return create(type);
+            }
+
             MetaElementPtr apply(UmlManager::Implementation<Element>& el, EGM::ID stereotype_id) {
                 return apply(el, m_id_to_type.at(stereotype_id));
+            }
+
+            MetaElementPtr apply(UmlManager::Implementation<Element>& el, EGM::ID stereotype_id, EGM::ID element_id) {
+                next_id = element_id;
+                return apply(el, stereotype_id);
+            }
+
+            MetaElementPtr apply(UmlManager::Implementation<Element>& el, std::size_t stereotype_type, EGM::ID element_id) {
+                next_id = element_id;
+                return apply(el, stereotype_type);
             }
 
             EGM::ManagerTypes<UmlTypes>& getUmlManager() const {

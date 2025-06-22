@@ -1,4 +1,4 @@
-#include "uml-server/metaManager.h"
+#include "uml-server/metaManager/metaManager.h"
 #include "uml-server/constants.h"
 
 using namespace UML;
@@ -10,7 +10,7 @@ UmlManager::Pointer<UML::Element> get_element_from_uml_manager(AbstractElementPt
     return dynamic_cast<UML::MetaManager&>(meta_ptr->getManager()).getUmlManager().abstractGet(id); 
 }
 }
-AbstractElementPtr MetaElementSerializationPolicy::parse_meta_element_node(YAML::Node node, std::function<EGM::AbstractElementPtr(std::size_t)> f) {
+AbstractElementPtr MetaElementSerializationPolicy::parse_meta_element_node(YAML::Node node, std::function<EGM::AbstractElementPtr(std::size_t,EGM::ID)> f) {
     auto it = node.begin();
     while (it != node.end()) {
         const auto keyNode = it->first;
@@ -18,11 +18,11 @@ AbstractElementPtr MetaElementSerializationPolicy::parse_meta_element_node(YAML:
         if (valNode.IsMap()) {
             // look up key
             try {
-                auto el = f(m_meta_manager->m_name_to_type.at(keyNode.as<std::string>()));
+                EGM::ID el_id = EGM::ID::nullID();
                 if (valNode["id"] && valNode["id"].IsScalar()) {
-                    el->setID(EGM::ID::fromString(valNode["id"].template as<std::string>()));
+                    el_id = EGM::ID::fromString(valNode["id"].template as<std::string>());
                 }
-                
+                auto el = f(this->m_meta_manager->m_name_to_type.at(keyNode.as<std::string>()), el_id);
                 auto serialization_policy = m_serializationByType.at(0); // get meta manager
                 serialization_policy->parseBody(valNode, el);
                 serialization_policy->parseScope(node, el);
@@ -37,13 +37,17 @@ AbstractElementPtr MetaElementSerializationPolicy::parse_meta_element_node(YAML:
 }
 
 AbstractElementPtr MetaElementSerializationPolicy::parseNode(YAML::Node node) {
-    return parse_meta_element_node(node, [this](std::size_t element_type) -> AbstractElementPtr { return m_meta_manager->create(element_type); });
+    return parse_meta_element_node(node, [this](std::size_t element_type, EGM::ID element_id) -> AbstractElementPtr { 
+            return this->m_meta_manager->create(element_type, element_id);
+        });
 }
 
 
 
 MetaManager::MetaElementPtr MetaManager::parse_stereotype_node(UmlManager::Implementation<Element>& el, YAML::Node node) {
-    return parse_meta_element_node(node, [this, &el](std::size_t element_type) -> AbstractElementPtr { return m_meta_manager->apply(el, element_type); });
+    return parse_meta_element_node(node, [this, &el](std::size_t element_type, EGM::ID element_id) -> AbstractElementPtr { 
+            return apply(el, element_type, element_id); 
+        });
 }
 
 
@@ -68,7 +72,8 @@ MetaManager::MetaManager(UmlManager::Implementation<Element>& abstraction_root) 
 {
     
     // link to serialization policy
-    m_meta_manager = this;
+    MetaElementSerializationPolicy::m_meta_manager = this;
+    MetaElementStoragePolicy::m_meta_manager = this;
 
     m_generation_root = &abstraction_root;
 
@@ -85,6 +90,7 @@ MetaManager::MetaManager(UmlManager::Implementation<Element>& abstraction_root) 
         auto front = queue.front();
         queue.pop_front();
         if (front->is<Classifier>()) {
+            UmlManager::Pointer<Classifier> curr_classifier = front;
             if (m_id_to_type.count(front.id())) {
                 continue;
             }
@@ -92,7 +98,7 @@ MetaManager::MetaManager(UmlManager::Implementation<Element>& abstraction_root) 
             m_id_to_type.emplace(front.id(), next_type);
             m_name_to_type.emplace(front->as<NamedElement>().getName(), next_type);
             next_type++;
-            for (auto prop : front->as<Classifier>().getAttributes().ptrs()) {
+            for (auto prop : curr_classifier->getAttributes().ptrs()) {
                 if (prop->getType()) {
                     
                     // check if built in data type
@@ -109,7 +115,7 @@ MetaManager::MetaManager(UmlManager::Implementation<Element>& abstraction_root) 
                      queue.push_back(prop->getType());
                 }
             }
-            for (auto base : front->as<Classifier>().getGenerals().ptrs()) {
+            for (auto base : curr_classifier->getGenerals().ptrs()) {
                 queue.push_back(base);
             }
         }
@@ -151,6 +157,78 @@ struct AbstractPrimitivePolicy {
     virtual PrimitivePolicyType primitive() const = 0;
 };
 
+struct RealDataPolicy : public EGM::AbstractDataPolicy , public AbstractPrimitivePolicy {
+    double m_val = 0;
+    RealDataPolicy(double val) : m_val(val) {}
+    std::string getData() override {
+        return std::to_string(m_val);
+    }
+    void setData(std::string data) override {
+        char* rest {};
+        m_val = std::strtod(data.c_str(), &rest);
+    }
+    void setData(double val) {
+        m_val = val;
+    }
+    PrimitivePolicyType primitive() const override { return PrimitivePolicyType::REAL; }
+};
+
+struct MetaManagerBooleanDataPolicy : public EGM::AbstractDataPolicy , public AbstractPrimitivePolicy {
+    bool m_val;
+    MetaManagerBooleanDataPolicy(bool val) : m_val(val) {}
+    std::string getData() override {
+        if (m_val) {
+            return "true";
+        } else {
+            return "false";
+        }
+    }
+    void setData(std::string data) override {
+        if (data == "true") {
+            m_val = true;
+        } else if (data == "false") {
+            m_val = false;
+        } else {
+            throw EGM::ManagerStateException("could not determine boolean value from string");
+        }
+    }
+    void setData(bool val) {
+        m_val = val;
+    }
+    PrimitivePolicyType primitive() const override { return PrimitivePolicyType::BOOLEAN; }
+};
+
+struct IntegerDataPolicy : public EGM::AbstractDataPolicy , public AbstractPrimitivePolicy {
+    int m_val = 0;
+    IntegerDataPolicy(int val) : m_val(val) {}
+    std::string getData() override {
+        return std::to_string(m_val);
+    }
+    void setData(std::string data) override {
+        try {
+            m_val = std::stoi(data);
+        } catch (std::invalid_argument& e) {
+            throw EGM::ManagerStateException("invalid integer");
+        }
+    }
+    void setData(int val) {
+        m_val = val;
+    }
+    PrimitivePolicyType primitive() const override { return PrimitivePolicyType::INTEGER; }
+};
+
+struct StringDataPolicy : public EGM::AbstractDataPolicy , public AbstractPrimitivePolicy {
+    std::string m_val = "";
+    StringDataPolicy(std::string val) : m_val(val) {}
+    std::string getData() override {
+        return m_val;
+    }
+    void setData(std::string data) override {
+        m_val = data;
+    }
+    PrimitivePolicyType primitive() const override { return PrimitivePolicyType::STRING; }
+};
+
 void MetaManager::create_uml_representation(MetaManager::Pointer<MetaElement> meta_element) {
     auto element_instance = m_uml_manager.create<InstanceSpecification>();
     meta_element->uml_representation = element_instance;
@@ -165,13 +243,44 @@ void MetaManager::create_uml_representation(MetaManager::Pointer<MetaElement> me
     for (auto& set_pair : meta_element->sets) {
         // set up slot
         auto slot = m_uml_manager.create<Slot>();
-        slot->setDefiningFeature(meta_element->meta_type->getInheritedMembers().get(set_pair.first));
+        UmlManager::Pointer<Property> property = meta_element->meta_type->getAttributes().get(set_pair.first);
+        slot->setDefiningFeature(property);
 
         auto& set_policy = dynamic_cast<MetaElementSetPolicy<MetaManager::GenBaseHierarchy<MetaElement>>&>(*set_pair.second);
         set_policy.uml_manager = &m_uml_manager;
         set_policy.uml_slot = slot;
 
-        // TODO default value
+        // default value
+        auto default_value = property->getDefaultValue();
+        if (default_value) {
+            if (!default_value->is<InstanceValue>()) {
+                throw ManagerStateException("default value error, must be instance value!");
+            }
+            auto value_instance = default_value->as<InstanceValue>().getInstance();
+            if (!value_instance) {
+                throw ManagerStateException("default value error, instance value does not have an instance!");
+            }
+            // auto instance_classifier = value_instance->getClassifiers().front();
+            // if (!instance_classifier) {
+            //     throw ManagerStateException("default value error, instance does not have a classifier!");
+            // }
+            // auto value = this->create(instance_classifier.id());
+            auto value = this->abstractGet(value_instance.id());
+            switch (set_pair.second->setType()) {
+                case EGM::SetType::SINGLETON:
+                    dynamic_cast<MetaElementImpl::Singleton*>(set_pair.second.get())->set(value);
+                    break;
+                case EGM::SetType::SET:
+                    dynamic_cast<MetaElementImpl::Set*>(set_pair.second.get())->add(value); 
+                    break;
+                case EGM::SetType::ORDERED_SET:
+                    dynamic_cast<MetaElementImpl::OrderedSet*>(set_pair.second.get())->add(value); 
+                    break;
+                default:
+                    throw ManagerStateException("TODO!");
+            }
+            set_policy.default_value = value.id();
+        }
 
         element_instance->getSlots().add(slot);
     }
@@ -198,12 +307,157 @@ void MetaManager::create_uml_representation(MetaManager::Pointer<MetaElement> me
     }
 }
 
-// create_meta_element
-// element_type - element_type of meta_element
-// applying_element - pointer (can be null) to element applying meta_element to as stereotype
-// return - the meta_element created as a ptr
-EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_type, UmlManager::Pointer<Element> applying_element) {
+template <template <class> class UmlType, template <template <class> class, class, class> class SetType>
+using UmlSetType = SetType<UmlType, MetaManager::Implementation<MetaElement>, EGM::DoNothingPolicy>; 
+
+template <template <template <class> class, class, class> class SetType>
+std::unique_ptr<AbstractSet> create_meta_set(EGM::ID type_id, MetaManager::Implementation<MetaElement>& meta_el) {
+    // special sets to hold uml types
+    if (uml_meta_types.contains(type_id)) {
+        if (type_id == association_type_id) {
+            return std::make_unique<UmlSetType<UML::Association, SetType>>(&meta_el);
+        }
+        if (type_id == class_type_id) {
+            return std::make_unique<UmlSetType<UML::Class, SetType>>(&meta_el);
+        }
+        if (type_id == classifier_type_id) {
+            return std::make_unique<UmlSetType<UML::Classifier, SetType>>(&meta_el);
+        }
+        if (type_id == comment_type_id) {
+            return std::make_unique<UmlSetType<UML::Comment, SetType>>(&meta_el);
+        }
+        if (type_id == connectable_element_type_id) {
+            return std::make_unique<UmlSetType<UML::Comment, SetType>>(&meta_el);
+        }
+        if (type_id == data_type_type_id) {
+            return std::make_unique<UmlSetType<UML::DataType, SetType>>(&meta_el);
+        }
+        if (type_id == dependency_type_id) {
+            return std::make_unique<UmlSetType<UML::Dependency, SetType>>(&meta_el);
+        }
+        if (type_id == directed_relationship_type_id) {
+            return std::make_unique<UmlSetType<UML::DirectedRelationship, SetType>>(&meta_el);
+        }
+        if (type_id == element_type_id) {
+            return std::make_unique<UmlSetType<UML::Element, SetType>>(&meta_el);
+        }
+        if (type_id == encapsulated_classifier_type_id) {
+            return std::make_unique<UmlSetType<UML::EncapsulatedClassifier, SetType>>(&meta_el);
+        }
+        if (type_id == enumeration_type_id) {
+            return std::make_unique<UmlSetType<UML::Enumeration, SetType>>(&meta_el);
+        }
+        if (type_id == enumeration_literal_type_id) {
+            return std::make_unique<UmlSetType<UML::EnumerationLiteral, SetType>>(&meta_el);
+        }
+        if (type_id == extension_type_id) {
+            return std::make_unique<UmlSetType<UML::Extension, SetType>>(&meta_el);
+        }
+        if (type_id == extension_end_type_id) {
+            return std::make_unique<UmlSetType<UML::ExtensionEnd, SetType>>(&meta_el);
+        }
+        if (type_id == feature_type_id) {
+            return std::make_unique<UmlSetType<UML::Feature, SetType>>(&meta_el);
+        }
+        if (type_id == generalization_type_id) {
+            return std::make_unique<UmlSetType<UML::Generalization, SetType>>(&meta_el);
+        }
+        if (type_id == instance_specification_type_id) {
+            return std::make_unique<UmlSetType<UML::InstanceSpecification, SetType>>(&meta_el);
+        }
+        if (type_id == instance_value_type_id) {
+            return std::make_unique<UmlSetType<UML::InstanceValue, SetType>>(&meta_el);
+        }
+        if (type_id == literal_boolean_type_id) {
+            return std::make_unique<UmlSetType<UML::LiteralBoolean, SetType>>(&meta_el);
+        }
+        if (type_id == literal_integer_type_id) {
+            return std::make_unique<UmlSetType<UML::LiteralInteger, SetType>>(&meta_el);
+        }
+        if (type_id == literal_null_type_id) {
+            return std::make_unique<UmlSetType<UML::LiteralNull, SetType>>(&meta_el);
+        }
+        if (type_id == literal_real_type_id) {
+            return std::make_unique<UmlSetType<UML::LiteralReal, SetType>>(&meta_el);
+        }
+        if (type_id == literal_specification_type_id) {
+            return std::make_unique<UmlSetType<UML::LiteralSpecification, SetType>>(&meta_el);
+        }
+        if (type_id == literal_string_type_id) {
+            return std::make_unique<UmlSetType<UML::LiteralString, SetType>>(&meta_el);
+        }
+        if (type_id == literal_unlimited_natural_type_id) {
+            return std::make_unique<UmlSetType<UML::LiteralUnlimitedNatural, SetType>>(&meta_el);
+        }
+        if (type_id == multiplicity_element_type_id) {
+            return std::make_unique<UmlSetType<UML::MultiplicityElement, SetType>>(&meta_el);
+        }
+        if (type_id == named_element_type_id) {
+            return std::make_unique<UmlSetType<UML::NamedElement, SetType>>(&meta_el);
+        }
+        if (type_id == namespace_type_id) {
+            return std::make_unique<UmlSetType<UML::Namespace, SetType>>(&meta_el);
+        }
+        if (type_id == package_type_id) {
+            return std::make_unique<UmlSetType<UML::Package, SetType>>(&meta_el);
+        }
+        if (type_id == packageable_element_type_id) {
+            return std::make_unique<UmlSetType<UML::Package, SetType>>(&meta_el);
+        }
+        // if (type_id == parameterable_element_type_id) {
+        //     return std::make_unique<UmlSetType<UML::ParameterableElement, SetType>>(&meta_el);
+        // }
+        if (type_id == primitive_type_element_type_id) {
+            return std::make_unique<UmlSetType<UML::PrimitiveType, SetType>>(&meta_el);
+        }
+        if (type_id == profile_type_id) {
+            return std::make_unique<UmlSetType<UML::Profile, SetType>>(&meta_el);
+        }
+        if (type_id == property_type_id) {
+            return std::make_unique<UmlSetType<UML::Property, SetType>>(&meta_el);
+        }
+        if (type_id == redefinable_element_type_id) {
+            return std::make_unique<UmlSetType<UML::RedefinableElement, SetType>>(&meta_el);
+        }
+        if (type_id == relationship_type_id) {
+            return std::make_unique<UmlSetType<UML::Relationship, SetType>>(&meta_el);
+        }
+        if (type_id == slot_type_id) {
+            return std::make_unique<UmlSetType<UML::Slot, SetType>>(&meta_el);
+        }
+        if (type_id == stereotype_type_id) {
+            return std::make_unique<UmlSetType<UML::Stereotype, SetType>>(&meta_el);
+        }
+        if (type_id == structural_feature_type_id) {
+            return std::make_unique<UmlSetType<UML::StructuralFeature, SetType>>(&meta_el);
+        }
+        if (type_id == structured_classifier_type_id) {
+            return std::make_unique<UmlSetType<UML::StructuredClassifier, SetType>>(&meta_el);
+        }
+        if (type_id == type_type_id) {
+            return std::make_unique<UmlSetType<UML::Type, SetType>>(&meta_el);
+        }
+        if (type_id == typed_element_type_id) {
+            return std::make_unique<UmlSetType<UML::TypedElement, SetType>>(&meta_el);
+        }
+        if (type_id == value_specification_type_id) {
+            return std::make_unique<UmlSetType<UML::ValueSpecification, SetType>>(&meta_el);
+        }
+        throw ManagerStateException("unhandled type! " + type_id.string());
+    }
+
+    // default handling for meta_elements
+    // return std::make_unique<SetType<MetaElement, MetaManager::Implementation<MetaElement>>>(&meta_el);
+    return std::make_unique<MetaElementSet<MetaManager::GenBaseHierarchy<MetaElement>, SetType>>(&meta_el);
+}
+
+MetaManager::Pointer<MetaElement> MetaManager::create_meta_element_object(std::size_t element_type, UmlManager::Pointer<Element> applying_element) {
     auto meta_element = BaseManager::create<MetaElement>();
+
+    if (next_id != EGM::ID::nullID()) {
+        meta_element->setID(next_id);
+        next_id = EGM::ID::nullID();
+    }
 
     m_meta_elements.insert(meta_element.id());
     
@@ -250,12 +504,22 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
 
         if (upper_value && *upper_value == 1) {
             // singleton
-            created_set = &*meta_element->sets.emplace(property.id(), std::make_unique<MetaElementImpl::Singleton>(&*meta_element)).first->second;
+            created_set = &*meta_element->sets.emplace(
+                    property.id(), 
+                    create_meta_set<EGM::Singleton>(property->getType().id(), *meta_element)
+                ).first->second;
         } else if (property->isOrdered()) {
-            created_set = &*meta_element->sets.emplace(property.id(), std::make_unique<MetaElementImpl::OrderedSet>(&*meta_element)).first->second;
+            // ordered set
+            created_set = &*meta_element->sets.emplace(
+                    property.id(),
+                    create_meta_set<EGM::OrderedSet>(property->getType().id(), *meta_element)
+                ).first->second;
         } else {
             // default to set
-            created_set = &*meta_element->sets.emplace(property.id(), std::make_unique<MetaElementImpl::Set>(&*meta_element)).first->second;
+            created_set = &*meta_element->sets.emplace(
+                    property.id(),
+                    create_meta_set<EGM::Set>(property->getType().id(), *meta_element)
+                ).first->second;
         }
 
         for (auto subsetted_property : property->getSubsettedProperties().ptrs()) {
@@ -267,7 +531,7 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
             auto redefined_set = create_property_set(redefined_property);
             created_set->redefines(*redefined_set);
         }
-        
+
         return created_set;
     };
 
@@ -294,29 +558,7 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
                     initial_value = default_value->as<LiteralBoolean>().getValue();
                 }
 
-                struct BooleanDataPolicy : public EGM::AbstractDataPolicy , public AbstractPrimitivePolicy {
-                    bool m_val;
-                    BooleanDataPolicy(bool val) : m_val(val) {}
-                    std::string getData() override {
-                        if (m_val) {
-                            return "true";
-                        } else {
-                            return "false";
-                        }
-                    }
-                    void setData(std::string data) override {
-                        if (data == "true") {
-                            m_val = true;
-                        } else if (data == "false") {
-                            m_val = false;
-                        } else {
-                            throw EGM::ManagerStateException("could not determine boolean value from string");
-                        }
-                    }
-                    PrimitivePolicyType primitive() const override { return PrimitivePolicyType::BOOLEAN; }
-                };
-
-                auto data_policy = std::make_unique<BooleanDataPolicy>(initial_value);
+                auto data_policy = std::make_unique<MetaManagerBooleanDataPolicy>(initial_value);
                 data_policy->defining_feature = property;
                 meta_element->data.emplace(property.id(), std::move(data_policy));
             } else if (type_id == integer_type_id) {
@@ -326,22 +568,7 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
                     initial_value = default_value->as<LiteralInteger>().getValue();
                 }
 
-                struct IntegerDataPolicy : public EGM::AbstractDataPolicy , public AbstractPrimitivePolicy {
-                    int m_val = 0;
-                    IntegerDataPolicy(int val) : m_val(val) {}
-                    std::string getData() override {
-                        return std::to_string(m_val);
-                    }
-                    void setData(std::string data) override {
-                        try {
-                            m_val = std::stoi(data);
-                        } catch (std::invalid_argument& e) {
-                            throw EGM::ManagerStateException("invalid integer");
-                        }
-                    }
-                    PrimitivePolicyType primitive() const override { return PrimitivePolicyType::INTEGER; }
-                };
-
+                
                 auto data_policy = std::make_unique<IntegerDataPolicy>(initial_value);
                 data_policy->defining_feature = property;
                 meta_element->data.emplace(property.id(), std::move(data_policy));
@@ -352,19 +579,7 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
                     initial_value = default_value->as<LiteralReal>().getValue();
                 }
 
-                struct RealDataPolicy : public EGM::AbstractDataPolicy , public AbstractPrimitivePolicy {
-                    double m_val = 0;
-                    RealDataPolicy(double val) : m_val(val) {}
-                    std::string getData() override {
-                        return std::to_string(m_val);
-                    }
-                    void setData(std::string data) override {
-                        char* rest {};
-                        m_val = std::strtod(data.c_str(), &rest);
-                    }
-                    PrimitivePolicyType primitive() const override { return PrimitivePolicyType::REAL; }
-                };
-
+                
                 auto data_policy = std::make_unique<RealDataPolicy>(initial_value);
                 data_policy->defining_feature = property;
                 meta_element->data.emplace(property.id(), std::move(data_policy));
@@ -375,18 +590,7 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
                     initial_value = default_value->as<LiteralString>().getValue();
                 }
 
-                struct StringDataPolicy : public EGM::AbstractDataPolicy , public AbstractPrimitivePolicy {
-                    std::string m_val = "";
-                    StringDataPolicy(std::string val) : m_val(val) {}
-                    std::string getData() override {
-                        return m_val;
-                    }
-                    void setData(std::string data) override {
-                        m_val = data;
-                    }
-                    PrimitivePolicyType primitive() const override { return PrimitivePolicyType::STRING; }
-                };
-
+                
                 auto data_policy = std::make_unique<StringDataPolicy>(initial_value);
                 data_policy->defining_feature = property;
                 meta_element->data.emplace(property.id(), std::move(data_policy));
@@ -401,8 +605,135 @@ EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_typ
             queue.push_back(base);
         }
     }
-   
+
+    return meta_element;
+}
+
+// create_meta_element
+// element_type - element_type of meta_element
+// applying_element - pointer (can be null) to element applying meta_element to as stereotype
+// return - the meta_element created as a ptr
+EGM::AbstractElementPtr MetaManager::create_meta_element(std::size_t element_type, UmlManager::Pointer<Element> applying_element) {
+    auto meta_element = create_meta_element_object(element_type, applying_element); 
     create_uml_representation(meta_element); 
 
+    if (applying_element) {
+        m_stereotyped_elements.emplace(applying_element.id(), applying_element);
+    }
+
     return meta_element; 
+}
+
+AbstractElementPtr MetaElementStoragePolicy::loadElement(ID id) {
+    UmlManager::Pointer<Element> uml_element = m_meta_manager->m_uml_manager.abstractGet(id);
+
+    if (uml_element->is<InstanceSpecification>()) {
+        auto& instance = uml_element->as<InstanceSpecification>();
+        auto classifier = instance.getClassifiers().front();
+        if (!classifier) {
+            return uml_element;
+            // throw ManagerStateException("no classifier for instance when restoring meta element");
+        }
+
+        auto match = m_meta_manager->m_id_to_type.find(classifier.id());
+        if (match == m_meta_manager->m_id_to_type.end()) {
+            return uml_element;
+            // throw ManagerStateException("not tracking classifier " + classifier.id().string());
+        }
+
+        m_meta_manager->next_id = instance.getID();
+        auto meta_element = m_meta_manager->create_meta_element_object(match->second, 0);
+
+        for (auto& slot : instance.getSlots()) {
+            auto defining_feature = slot.getDefiningFeature();
+            if (!defining_feature) {
+                throw ManagerStateException("bad slot for type representation " + classifier.id().string());
+            }
+
+            auto set_match = meta_element->sets.find(defining_feature.id());
+
+            if (set_match != meta_element->sets.end()) {
+                // the slot is a match to one of the meta_element's set
+                auto& set = *set_match->second;
+                auto get_val_meta_element = [this] (UmlManager::Pointer<ValueSpecification> uml_val) -> MetaManager::Pointer<MetaElement> {
+                    if (!uml_val->is<InstanceValue>()) {
+                        throw ManagerStateException("Expected an instance value for slot value!");
+                    }
+                    auto uml_val_instance = uml_val->as<InstanceValue>().getInstance();
+                    if (!uml_val_instance) {
+                        throw ManagerStateException("Instance value must have an instance !");
+                    }
+                    return m_meta_manager->get(uml_val_instance.id()); 
+                };
+                if (set.setType() == SetType::SINGLETON) {
+                    if (slot.getValues().size() > 1) {
+                        throw ManagerStateException("bad slot, has more than one value but is a singleon! " + instance.getID().string());
+                    }
+                    auto uml_val = slot.getValues().front();
+                    if (uml_val) {
+                        auto val = get_val_meta_element(uml_val);
+                        meta_element->getSingleton(defining_feature.id()).set(val);
+                    }
+                } else {
+                    for (auto uml_val : slot.getValues().ptrs()) {
+                        auto val = get_val_meta_element(uml_val);
+                        switch (set.setType()) {
+                            case SetType::SET : {
+                                meta_element->getSet(defining_feature.id()).add(val);
+                                break;
+                            }
+                            case SetType::ORDERED_SET: {
+                                meta_element->getOrderedSet(defining_feature.id()).add(val);
+                                break;                           
+                            }
+                            default:
+                                throw ManagerStateException("TODO");
+                        }
+                    }
+                }
+                continue;
+            }
+
+            auto data_match = meta_element->data.find(defining_feature.id());
+
+            if (data_match != meta_element->data.end()) {
+                auto& data_policy = dynamic_cast<AbstractPrimitivePolicy&>(*data_match->second);
+                if (slot.getValues().size() > 1) {
+                    throw ManagerStateException("Too many values for primitive type");
+                }
+                auto uml_val = slot.getValues().front();
+                if (!uml_val->is<LiteralSpecification>()) {
+                    throw ManagerStateException("Must be a literal specification!");
+                }
+                switch (data_policy.primitive()) {
+                    case PrimitivePolicyType::BOOLEAN:
+                        dynamic_cast<MetaManagerBooleanDataPolicy&>(data_policy).setData(uml_val->as<LiteralBoolean>().getValue());
+                        break;
+                    case PrimitivePolicyType::INTEGER:
+                        dynamic_cast<IntegerDataPolicy&>(data_policy).setData(uml_val->as<LiteralInteger>().getValue());
+                        break;
+                    case PrimitivePolicyType::STRING:
+                        dynamic_cast<StringDataPolicy&>(data_policy).setData(uml_val->as<LiteralString>().getValue());
+                        break;
+                    case PrimitivePolicyType::REAL:
+                        dynamic_cast<RealDataPolicy&>(data_policy).setData(uml_val->as<LiteralReal>().getValue());
+                        break;
+                    default:
+                        throw ManagerStateException("TODO");
+                }
+                continue;
+            }
+        }
+
+        return meta_element;
+    }
+
+    return uml_element;
+    // throw ManagerStateException("Could not load meta element");
+}
+void MetaElementStoragePolicy::saveElement(EGM::AbstractElement& el) {
+    // do nothing cause our policies take care of it
+}
+void MetaElementStoragePolicy::eraseEl(EGM::ID id) {
+    // handled by overriden method
 }

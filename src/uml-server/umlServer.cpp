@@ -61,6 +61,11 @@ std::optional<std::string> receive_message(int socket) {
     
     // get rest of message 
     message_size_buffer = be64toh(message_size_buffer);
+
+    if (message_size_buffer > SIZE_MAX) {
+        return std::nullopt;
+    }
+
     char* message_buffer = (char*) calloc(message_size_buffer + 1, sizeof(char));
     message_buffer[message_size_buffer] = '\0';
     bytes_read = 0;
@@ -295,9 +300,18 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                     log("server got element " +  elID.string() + " for client " + id.string() + ":\n" + msg);
                 } else {
                     MetaManager& meta_manager = get_meta_manager(manager_id);
-                    MetaManager::Pointer<MetaElement> el = meta_manager.get(elID);
-                    std::string msg = meta_manager.emit_meta_element(*el);
-                    send_message(info.socket, msg);
+
+                    // first check if we have a stereotyped element of this
+                    auto stereotype_match = meta_manager.get_stereotyped_element(elID);
+                    std::string msg;
+                    if (stereotype_match) {
+                        msg = this->emitIndividual(*stereotype_match);
+                        send_message(info.socket, msg);
+                    } else {
+                        MetaManager::Pointer<MetaElement> el = meta_manager.get(elID);
+                        msg = meta_manager.emit_meta_element(*el);
+                        send_message(info.socket, msg);
+                    }
                     log("server got element " + elID.string() + " from manager " + manager_id.string() + " for client " + id.string() + " :\n" + msg);
                 }
             } catch (std::exception& e) {
@@ -346,8 +360,44 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                         log(msg);
                         return;
                     }
+                    
+                    std::optional<std::size_t> element_type_option;
 
-                    auto element_type = meta_manager.get_type_by_name(postNode["type"].as<std::string>());
+                    switch (check_id(postNode["type"])) {
+                        case 0: {
+                             element_type_option = meta_manager.get_type_with_id(ID::fromString(postNode["type"].as<std::string>()));
+                             break;
+                        }
+                        case NOT_SCALAR: {
+                            std::string msg = "{\"error\":\"type must be a scalar value for post requests!\"}";
+                            log(msg);
+                            send_message(info.socket, msg);
+                            return;
+                        }
+                             
+                    }
+
+
+                    if (!element_type_option) {
+                        element_type_option = meta_manager.get_type_by_name(postNode["type"].as<std::string>());
+                    }
+
+                    if (!element_type_option) {
+                        std::string msg = std::format(
+                            "{{\"error\":\"could not determine type provided <{}>\"}}",
+                            postNode["type"].as<std::string>()        
+                        );
+                        log(msg);
+                        send_message(info.socket, msg);
+                        return;
+                    }
+
+                    EGM::ID id_specified = EGM::ID::nullID();
+
+                    if (postNode["id"]) {
+                        id_specified = ID::fromString(postNode["id"].as<std::string>());
+                        log("setting id of posted element to " + created_element.id().string());
+                    } 
 
                     auto applying_element_node = postNode["applying_element"];
                     if (applying_element_node) {
@@ -368,9 +418,9 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                         }
 
                         UmlManager::Pointer<Element> uml_element = get(ID::fromString(applying_element_node.as<std::string>()));
-                        created_element = meta_manager.apply(*uml_element, element_type);
+                        created_element = meta_manager.apply(*uml_element, *element_type_option, id_specified);
                     } else {
-                        created_element = meta_manager.create(element_type);
+                        created_element = meta_manager.create(*element_type_option, id_specified);
                     }
                 } else {
                     if (postNode["type"]) {
@@ -405,6 +455,11 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                             }
                         }
                         created_element = ret;
+                        if (postNode["id"]) {
+                            id = ID::fromString(postNode["id"].as<std::string>());
+                            created_element->setID(id);
+                            log("set id of posted element to " + created_element.id().string());
+                        }
                     } else {
                         std::string msg = "{\"error\":\"Must specify type when posting a uml element\"}";
                         log(msg);
@@ -412,16 +467,10 @@ void UmlServer::handleMessage(ID id, std::string buff) {
                         return;
                     }
                 }
-
-                if (postNode["id"]) {
-                    id = ID::fromString(postNode["id"].as<std::string>());
-                    created_element->setID(id);
-                    log("set id of posted element to " + created_element.id().string());
-                }
             }
-            log("server created new element for client" + id.string());
             std::string reply_message = "{\"status\":\"success\"}";
             send_message(info.socket, reply_message);
+            log(reply_message);
             std::lock_guard<std::mutex> garbageLck(m_garbageMtx);
             m_releaseQueue.push_front(id);
             m_garbageCv.notify_one();

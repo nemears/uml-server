@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
-#include "uml-server/metaManager.h"
+#include "uml-server/metaManager/metaManager.h"
+#include "uml-server/metaManager/proxyElementSet.h"
 #include "uml-server/constants.h"
 
 using namespace UML;

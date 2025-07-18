@@ -1,4 +1,6 @@
 #include "uml-server/metaManager/metaManager.h"
+#include "uml-server/metaManager/proxyElement.h"
+#include "uml-server/metaManager/proxyElementSet.h"
 #include "uml-server/constants.h"
 
 using namespace UML;
@@ -241,14 +243,22 @@ void MetaManager::create_uml_representation(MetaManager::Pointer<MetaElement> me
     }
 
     for (auto& set_pair : meta_element->sets) {
+        
+        auto* set_policy = dynamic_cast<MetaElementSetPolicy<MetaManager::GenBaseHierarchy<MetaElement>>*>(set_pair.second.get());
+        // check if it is a proxy set, if it is, we don't need
+        // to do anything because it represents a part of a uml
+        // model
+        if (!set_policy) {
+            continue;
+        }
+
         // set up slot
         auto slot = m_uml_manager.create<Slot>();
         UmlManager::Pointer<Property> property = meta_element->meta_type->getAttributes().get(set_pair.first);
         slot->setDefiningFeature(property);
 
-        auto& set_policy = dynamic_cast<MetaElementSetPolicy<MetaManager::GenBaseHierarchy<MetaElement>>&>(*set_pair.second);
-        set_policy.uml_manager = &m_uml_manager;
-        set_policy.uml_slot = slot;
+        set_policy->uml_manager = &m_uml_manager;
+        set_policy->uml_slot = slot;
 
         // default value
         auto default_value = property->getDefaultValue();
@@ -279,7 +289,7 @@ void MetaManager::create_uml_representation(MetaManager::Pointer<MetaElement> me
                 default:
                     throw ManagerStateException("TODO!");
             }
-            set_policy.default_value = value.id();
+            set_policy->default_value = value.id();
         }
 
         element_instance->getSlots().add(slot);
@@ -314,136 +324,7 @@ template <template <template <class> class, class, class> class SetType>
 std::unique_ptr<AbstractSet> create_meta_set(EGM::ID type_id, MetaManager::Implementation<MetaElement>& meta_el) {
     // special sets to hold uml types
     if (uml_meta_types.contains(type_id)) {
-        if (type_id == association_type_id) {
-            return std::make_unique<UmlSetType<UML::Association, SetType>>(&meta_el);
-        }
-        if (type_id == class_type_id) {
-            return std::make_unique<UmlSetType<UML::Class, SetType>>(&meta_el);
-        }
-        if (type_id == classifier_type_id) {
-            return std::make_unique<UmlSetType<UML::Classifier, SetType>>(&meta_el);
-        }
-        if (type_id == comment_type_id) {
-            return std::make_unique<UmlSetType<UML::Comment, SetType>>(&meta_el);
-        }
-        if (type_id == connectable_element_type_id) {
-            return std::make_unique<UmlSetType<UML::Comment, SetType>>(&meta_el);
-        }
-        if (type_id == data_type_type_id) {
-            return std::make_unique<UmlSetType<UML::DataType, SetType>>(&meta_el);
-        }
-        if (type_id == dependency_type_id) {
-            return std::make_unique<UmlSetType<UML::Dependency, SetType>>(&meta_el);
-        }
-        if (type_id == directed_relationship_type_id) {
-            return std::make_unique<UmlSetType<UML::DirectedRelationship, SetType>>(&meta_el);
-        }
-        if (type_id == element_type_id) {
-            return std::make_unique<UmlSetType<UML::Element, SetType>>(&meta_el);
-        }
-        if (type_id == encapsulated_classifier_type_id) {
-            return std::make_unique<UmlSetType<UML::EncapsulatedClassifier, SetType>>(&meta_el);
-        }
-        if (type_id == enumeration_type_id) {
-            return std::make_unique<UmlSetType<UML::Enumeration, SetType>>(&meta_el);
-        }
-        if (type_id == enumeration_literal_type_id) {
-            return std::make_unique<UmlSetType<UML::EnumerationLiteral, SetType>>(&meta_el);
-        }
-        if (type_id == extension_type_id) {
-            return std::make_unique<UmlSetType<UML::Extension, SetType>>(&meta_el);
-        }
-        if (type_id == extension_end_type_id) {
-            return std::make_unique<UmlSetType<UML::ExtensionEnd, SetType>>(&meta_el);
-        }
-        if (type_id == feature_type_id) {
-            return std::make_unique<UmlSetType<UML::Feature, SetType>>(&meta_el);
-        }
-        if (type_id == generalization_type_id) {
-            return std::make_unique<UmlSetType<UML::Generalization, SetType>>(&meta_el);
-        }
-        if (type_id == instance_specification_type_id) {
-            return std::make_unique<UmlSetType<UML::InstanceSpecification, SetType>>(&meta_el);
-        }
-        if (type_id == instance_value_type_id) {
-            return std::make_unique<UmlSetType<UML::InstanceValue, SetType>>(&meta_el);
-        }
-        if (type_id == literal_boolean_type_id) {
-            return std::make_unique<UmlSetType<UML::LiteralBoolean, SetType>>(&meta_el);
-        }
-        if (type_id == literal_integer_type_id) {
-            return std::make_unique<UmlSetType<UML::LiteralInteger, SetType>>(&meta_el);
-        }
-        if (type_id == literal_null_type_id) {
-            return std::make_unique<UmlSetType<UML::LiteralNull, SetType>>(&meta_el);
-        }
-        if (type_id == literal_real_type_id) {
-            return std::make_unique<UmlSetType<UML::LiteralReal, SetType>>(&meta_el);
-        }
-        if (type_id == literal_specification_type_id) {
-            return std::make_unique<UmlSetType<UML::LiteralSpecification, SetType>>(&meta_el);
-        }
-        if (type_id == literal_string_type_id) {
-            return std::make_unique<UmlSetType<UML::LiteralString, SetType>>(&meta_el);
-        }
-        if (type_id == literal_unlimited_natural_type_id) {
-            return std::make_unique<UmlSetType<UML::LiteralUnlimitedNatural, SetType>>(&meta_el);
-        }
-        if (type_id == multiplicity_element_type_id) {
-            return std::make_unique<UmlSetType<UML::MultiplicityElement, SetType>>(&meta_el);
-        }
-        if (type_id == named_element_type_id) {
-            return std::make_unique<UmlSetType<UML::NamedElement, SetType>>(&meta_el);
-        }
-        if (type_id == namespace_type_id) {
-            return std::make_unique<UmlSetType<UML::Namespace, SetType>>(&meta_el);
-        }
-        if (type_id == package_type_id) {
-            return std::make_unique<UmlSetType<UML::Package, SetType>>(&meta_el);
-        }
-        if (type_id == packageable_element_type_id) {
-            return std::make_unique<UmlSetType<UML::Package, SetType>>(&meta_el);
-        }
-        // if (type_id == parameterable_element_type_id) {
-        //     return std::make_unique<UmlSetType<UML::ParameterableElement, SetType>>(&meta_el);
-        // }
-        if (type_id == primitive_type_element_type_id) {
-            return std::make_unique<UmlSetType<UML::PrimitiveType, SetType>>(&meta_el);
-        }
-        if (type_id == profile_type_id) {
-            return std::make_unique<UmlSetType<UML::Profile, SetType>>(&meta_el);
-        }
-        if (type_id == property_type_id) {
-            return std::make_unique<UmlSetType<UML::Property, SetType>>(&meta_el);
-        }
-        if (type_id == redefinable_element_type_id) {
-            return std::make_unique<UmlSetType<UML::RedefinableElement, SetType>>(&meta_el);
-        }
-        if (type_id == relationship_type_id) {
-            return std::make_unique<UmlSetType<UML::Relationship, SetType>>(&meta_el);
-        }
-        if (type_id == slot_type_id) {
-            return std::make_unique<UmlSetType<UML::Slot, SetType>>(&meta_el);
-        }
-        if (type_id == stereotype_type_id) {
-            return std::make_unique<UmlSetType<UML::Stereotype, SetType>>(&meta_el);
-        }
-        if (type_id == structural_feature_type_id) {
-            return std::make_unique<UmlSetType<UML::StructuralFeature, SetType>>(&meta_el);
-        }
-        if (type_id == structured_classifier_type_id) {
-            return std::make_unique<UmlSetType<UML::StructuredClassifier, SetType>>(&meta_el);
-        }
-        if (type_id == type_type_id) {
-            return std::make_unique<UmlSetType<UML::Type, SetType>>(&meta_el);
-        }
-        if (type_id == typed_element_type_id) {
-            return std::make_unique<UmlSetType<UML::TypedElement, SetType>>(&meta_el);
-        }
-        if (type_id == value_specification_type_id) {
-            return std::make_unique<UmlSetType<UML::ValueSpecification, SetType>>(&meta_el);
-        }
-        throw ManagerStateException("unhandled type! " + type_id.string());
+        return std::make_unique<ProxyElementSet<MetaManager::GenBaseHierarchy<MetaElement>, SetType>>(&meta_el);
     }
 
     // default handling for meta_elements

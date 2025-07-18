@@ -1,17 +1,18 @@
 #pragma once
 
 #include "metaElementSet.h"
+#include "proxyElement.h"
 
 namespace UML {
 
-    struct MetaElementSerializationPolicy : public EGM::JsonSerializationPolicy<EGM::TemplateTypeList<MetaElement>> {
+    struct MetaElementSerializationPolicy : public EGM::JsonSerializationPolicy<EGM::TemplateTypeList<MetaElement, ProxyElement>> {
         protected:
             MetaManager* m_meta_manager;
             EGM::AbstractElementPtr parseNode(YAML::Node node) override;
             EGM::AbstractElementPtr parse_meta_element_node(YAML::Node node, std::function<EGM::AbstractElementPtr(std::size_t, EGM::ID)> f);
             void emitIndividual(YAML::Emitter& emitter, EGM::AbstractElement& el) override;
             std::string emitIndividual(EGM::AbstractElement& el) override { 
-                return EGM::JsonSerializationPolicy<EGM::TemplateTypeList<MetaElement>>::emitIndividual(el);
+                return EGM::JsonSerializationPolicy<EGM::TemplateTypeList<MetaElement, ProxyElement>>::emitIndividual(el);
             }
     };
 
@@ -23,18 +24,22 @@ namespace UML {
             MetaManager* m_meta_manager;
     };
 
-    class MetaManager : public EGM::Manager<EGM::TemplateTypeList<MetaElement>, MetaElementStoragePolicy>, public MetaElementSerializationPolicy {
+    class MetaManager : public EGM::Manager<EGM::TemplateTypeList<MetaElement, ProxyElement>, MetaElementStoragePolicy>, public MetaElementSerializationPolicy {
         friend struct MetaElementSerializationPolicy;
         template <class>
         friend class GenerativeManager; // TODO maybe move all of this inside generative manager as an inner class
         friend class UmlServer;
         friend class MetaElementStoragePolicy;
         friend class GenerativeSerializationPolicy;
+        template <class, template <template<class> class, class, class> class>
+        friend class ProxyElementSet;
         private:
-            using BaseManager = EGM::Manager<EGM::TemplateTypeList<MetaElement>, MetaElementStoragePolicy>;
-        protected:
+            using BaseManager = EGM::Manager<EGM::TemplateTypeList<MetaElement, ProxyElement>, MetaElementStoragePolicy>;
+        public:
             using MetaElementPtr = BaseManager::Pointer<MetaElement>;
             using MetaElementImpl = BaseManager::Implementation<MetaElement>;
+            using ProxyElementPtr = BaseManager::Pointer<ProxyElement>;
+        protected:
             EGM::ManagerTypes<UmlTypes>& m_uml_manager;
             UmlManager::Pointer<Package> m_storage_root;
             UmlManager::Pointer<Element> m_generation_root;
@@ -43,6 +48,7 @@ namespace UML {
             std::unordered_map<std::string, std::size_t> m_name_to_type;
             std::unordered_set<EGM::ID> m_meta_elements;
             std::unordered_map<EGM::ID, UmlManager::Pointer<Element>> m_stereotyped_elements;
+            std::unordered_map<EGM::ID, ProxyElementPtr> m_proxy_elements;
 
         public:
             MetaManager(UmlManager::Implementation<Element>& abstraction_root);
@@ -75,7 +81,7 @@ namespace UML {
             // return - the meta_element created as a ptr
             BaseManager::Pointer<MetaElement> create_meta_element_object(std::size_t element_type, UmlManager::Pointer<Element> applying_element);
             EGM::AbstractElementPtr create_meta_element(std::size_t element_type, UmlManager::Pointer<Element> applying_element);
-            void create_uml_representation(MetaManager::Pointer<MetaElement> meta_element);
+            void create_uml_representation(BaseManager::Pointer<MetaElement> meta_element);
             EGM::ID next_id; // id used for create
         public:
 
@@ -85,6 +91,13 @@ namespace UML {
 
             MetaElementPtr apply(UmlManager::Implementation<Element>& el, std::size_t stereotype) {
                 return create_meta_element(stereotype, &el);
+            }
+
+            ProxyElementPtr create_proxy_element(UmlManager::Pointer<Element> el) {
+                ProxyElementPtr proxy_element = BaseManager::create<ProxyElement>();
+                proxy_element->m_uml_element = el;
+                m_proxy_elements.emplace(el.id(), proxy_element);
+                return proxy_element;
             }
 
             EGM::AbstractElementPtr reindex(EGM::ID oldID, EGM::ID newID) override {
@@ -137,11 +150,11 @@ namespace UML {
                 return m_uml_manager;
             }
 
-            std::string emit_meta_element(MetaManager::Implementation<MetaElement>& el) {
+            std::string emit_meta_element(BaseManager::Implementation<MetaElement>& el) {
                 return emitIndividual(el);
             }
 
-            void emit_meta_element(YAML::Emitter& emitter, MetaManager::Implementation<MetaElement>& el) {
+            void emit_meta_element(YAML::Emitter& emitter, BaseManager::Implementation<MetaElement>& el) {
                 emitIndividual(emitter, el);
             }
 

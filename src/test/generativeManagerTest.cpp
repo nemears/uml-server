@@ -160,8 +160,8 @@ TEST_F(GenerativeManagerTest, referenceUmlElement) {
 
     auto type_inst = meta_manager.create(the_type.id());
     auto uml_package = m.create<Package>();
-    type_inst->getSet(uml_typed_property.id()).add(uml_package);
-
-    ASSERT_TRUE(type_inst->getSet(uml_typed_property.id()).front());
-    ASSERT_EQ(type_inst->getSet(uml_typed_property.id()).front().id(), uml_package.id());
+    type_inst->getProxySet(uml_typed_property.id()).add(uml_package);
+    
+    ASSERT_TRUE(type_inst->getProxySet(uml_typed_property.id()).front());
+    ASSERT_EQ(type_inst->getProxySet(uml_typed_property.id()).front().id(), uml_package.id());
 }

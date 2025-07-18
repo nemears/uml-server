@@ -2,6 +2,7 @@
 
 #include "uml/uml-stable.h"
 #include "metaManager/metaManager.h"
+#include "metaManager/proxyElementSet.h"
 
 namespace UML {
 

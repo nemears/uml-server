@@ -1,5 +1,7 @@
 #pragma once
+
 #include "uml/uml-stable.h"
+#include "proxyElement.h"
 
 namespace UML {
     template <class>
@@ -9,8 +11,13 @@ namespace UML {
     template <class, template <template<class> class, class, class> class>
     class MetaElementSet;
 
+    template <class Policy, template <template <class> class, class, class> class SetType>
+    class ProxyElementSet;
+
     template <class ManagerPolicy>
     struct MetaElement : public ManagerPolicy {
+        template <class, template <template <class> class, class, class> class>
+        friend class ProxyElementSet;
         using Info = EGM::TypeInfo<MetaElement>;
         MANAGED_ELEMENT_CONSTRUCTOR(MetaElement);
         std::unordered_map<EGM::ID, std::unique_ptr<EGM::AbstractSet>> sets;
@@ -23,6 +30,9 @@ namespace UML {
         using Set = MetaElementSet<ManagerPolicy, EGM::Set>;
         using OrderedSet = MetaElementSet<ManagerPolicy, EGM::OrderedSet>;
         using Singleton = MetaElementSet<ManagerPolicy, EGM::Singleton>;
+        using ProxySet = ProxyElementSet<ManagerPolicy, EGM::Set>;
+        using ProxySingleton = ProxyElementSet<ManagerPolicy, EGM::Singleton>;
+        using ProxyOrderedSet = ProxyElementSet<ManagerPolicy, EGM::OrderedSet>;
         Set& getSet(EGM::ID id) const {
             return dynamic_cast<Set&>(*sets.at(id));
         }
@@ -31,6 +41,15 @@ namespace UML {
         }
         Singleton& getSingleton(EGM::ID id) const {
             return dynamic_cast<Singleton&>(*sets.at(id));
+        }
+        ProxySet& getProxySet(EGM::ID id) const {
+            return dynamic_cast<ProxySet&>(*sets.at(id));
+        }
+        ProxySingleton& getProxySingleton(EGM::ID id) const {
+            return dynamic_cast<ProxySingleton&>(*sets.at(id));
+        }
+        ProxyOrderedSet& getProxyOrderedSet(EGM::ID id) const {
+            return dynamic_cast<ProxyOrderedSet&>(*sets.at(id));
         }
         private:
             void init() {}

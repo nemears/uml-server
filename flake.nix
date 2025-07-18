@@ -5,7 +5,7 @@
         flake-utils.url = "github:numtide/flake-utils";
         uml-cpp.url = "github:nemears/uml-cpp";
         nixpkgs.follows = "uml-cpp/nixpkgs";
-        egm.url = "path:/home/emory/Projects/egm";#"github:nemears/egm";
+        egm.url = "github:nemears/egm";
         uml-cafe-project-templates.url = "github:nemears/uml-cafe-project-templates";
     };
 

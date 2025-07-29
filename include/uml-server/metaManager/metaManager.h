@@ -14,6 +14,8 @@ namespace UML {
             std::string emitIndividual(EGM::AbstractElement& el) override { 
                 return EGM::JsonSerializationPolicy<EGM::TemplateTypeList<MetaElement, ProxyElement>>::emitIndividual(el);
             }
+            void emit_set(YAML::Emitter& emitter, std::string set_name, EGM::AbstractSet& set) override;
+            void parse_set(YAML::Node node, std::string set_name, EGM::AbstractSet& set) override;
     };
 
     struct MetaElementStoragePolicy {
@@ -106,7 +108,7 @@ namespace UML {
                 m_meta_elements.insert(newID);
 
                 // delete old instance, and set it up again with new id
-                auto overwritten_element = m_storage_root->getPackagedElements().get(newID);
+                UmlManager::Pointer<InstanceSpecification> overwritten_element = m_storage_root->getPackagedElements().get(newID);
                 if (overwritten_element){
                     m_uml_manager.erase(*overwritten_element);
                 }

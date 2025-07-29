@@ -5,11 +5,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1752806666,
-        "narHash": "sha256-GZDKJSOwLfsEex18O0Ah0TiebZKs7BBycQzz3YQrPZs=",
+        "lastModified": 1753795987,
+        "narHash": "sha256-S+tN9CHg3nacaeQaUVowHgww5NBTlftad2X+eJ4nZeI=",
         "owner": "nemears",
         "repo": "egm",
-        "rev": "bee87ef114387246effda0c0af546c0cb8a9082e",
+        "rev": "ae77457e71e6342f7ed50679ff8a6c333aa1376b",
         "type": "github"
       },
       "original": {
@@ -217,11 +217,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1746756408,
-        "narHash": "sha256-wHE7Ta4gpYXOjKfJ/Zm4rB6eVGzsqKJiDec8QUfKBpo=",
+        "lastModified": 1753796055,
+        "narHash": "sha256-hAHha1zboqL06Z78L3AbKXwvFN3rDvyg3/P+UdtGIqA=",
         "owner": "nemears",
         "repo": "uml-cafe-project-templates",
-        "rev": "b0464de6dcca6fd2bb0d807a87f93ef49856f3b2",
+        "rev": "b1446ab0cd0684fddd47796a708616f2d00c9790",
         "type": "github"
       },
       "original": {

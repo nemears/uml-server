@@ -44,6 +44,71 @@ AbstractElementPtr MetaElementSerializationPolicy::parseNode(YAML::Node node) {
         });
 }
 
+void MetaElementSerializationPolicy::emit_set(YAML::Emitter& emitter, std::string set_name, EGM::AbstractSet& set) {
+    if (dynamic_cast<AbstractProxySet*>(&set)) {
+        if (!set_valid_to_emit(set)) {
+            return;
+        }
+
+        emitter << set_name;
+        emitter << YAML::Value;
+        switch (set.setType()) {
+            case SetType::SET:
+            case SetType::ORDERED_SET: {
+                emitter << YAML::BeginSeq;
+                for (auto it = set.beginPtr(); *it != *set.endPtr(); it->next()) {
+                    MetaManager::Pointer<ProxyElement> proxy_el = it->getCurr();
+                    emitter << proxy_el->m_uml_element.id().string();
+                }
+                emitter << YAML::EndSeq;
+                break;
+            }
+            case SetType::SINGLETON: {
+                MetaManager::Pointer<ProxyElement> proxy_el = set.beginPtr()->getCurr();
+                emitter << proxy_el->m_uml_element.id().string();
+                break;
+            }
+            default:
+                throw EGM::ManagerStateException("only handling emitting ordered_set, set or singlieton!");
+        }
+        
+    } else {
+        JsonSerializationPolicy<EGM::TemplateTypeList<MetaElement, ProxyElement>>::emit_set(emitter, set_name, set);
+    }
+}
+
+void MetaElementSerializationPolicy::parse_set(YAML::Node node, std::string set_name, EGM::AbstractSet& set) {
+    if (dynamic_cast<AbstractProxySet*>(&set)) {
+        if (!set.rootSet()) {
+            return;
+        }
+        auto set_node = node[set_name];
+        if (set_node) {
+            if (set_node.IsScalar()) {
+                if (set.setType() != SetType::SINGLETON) {
+                    throw EGM::ManagerStateException("improper node given to parse, not expecting scalar!");
+                }
+                dynamic_cast<MetaManager::Implementation<MetaElement>::ProxySingleton&>(set).set(EGM::ID::fromString(set_node.as<std::string>()));
+            } else if (set_node.IsSequence()) {
+                if (set.setType() != SetType::SET || set.setType() != SetType::ORDERED_SET) {
+                    throw EGM::ManagerStateException("improper node given to parse, no expecting a sequence!");
+                }
+                for (auto set_val_node : set_node) {
+                    if (set.setType() == SetType::SET) {
+                        // dynamic_cast<MetaManager::Implementation<MetaElement>::ProxySet&>(set).add(EGM::ID::fromString(set_node.as<std::string>()));
+                    } else {
+                        // dynamic_cast<MetaManager::Implementation<MetaElement>::ProxyOrderedSet&>(set).add(EGM::ID::fromString(set_node.as<std::string>()));
+                    }
+                }
+            } else {
+                throw EGM::ManagerStateException("improper node given to parse, must be a scalar or a sequence!");
+            }
+        }
+    } else {
+        JsonSerializationPolicy<TemplateTypeList<MetaElement, ProxyElement>>::parse_set(node, set_name, set);
+    }
+}
+
 
 
 MetaManager::MetaElementPtr MetaManager::parse_stereotype_node(UmlManager::Implementation<Element>& el, YAML::Node node) {

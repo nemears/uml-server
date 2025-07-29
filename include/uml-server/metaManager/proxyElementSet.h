@@ -6,10 +6,11 @@
 #include "setConcepts.h"
 
 namespace UML {
+   
+    class AbstractProxySet {};
 
-    
-    template <class Policy, template <template <class> class, class, class> class SetType/**, HasAddMethod<SetType> Policy, HasSetMethod<SetType>, Policy**/>
-    class ProxyElementSet : public SetType<ProxyElement, MetaElement<Policy>, EGM::DoNothingPolicy> {
+    template <class Policy, template <template <class> class, class, class> class SetType>
+    class ProxyElementSet : public SetType<ProxyElement, MetaElement<Policy>, EGM::DoNothingPolicy> , public AbstractProxySet {
         protected:
             using BaseSet = SetType<ProxyElement, MetaElement<Policy>, EGM::DoNothingPolicy>;
             MetaManager::ProxyElementPtr get_proxy_element(UmlManager::Pointer<Element> el) {
@@ -28,8 +29,19 @@ namespace UML {
             void set(UmlManager::Pointer<Element> el) requires HasSetMethod<Policy, SetType> {
                 BaseSet::set(get_proxy_element(el));
             }
+
+            void set(EGM::ID id) requires HasSetMethod<Policy, SetType> {
+                auto& uml_manager = dynamic_cast<MetaManager&>(this->m_el.m_manager).m_uml_manager;
+                set(uml_manager.createPtr(id));
+            }
+
             void add(UmlManager::Pointer<Element> el) requires HasAddMethod<Policy, SetType> {
                 BaseSet::add(get_proxy_element(el));
+            }
+
+            void add(EGM::ID& id) requires HasAddMethod<Policy, SetType> {
+                auto& uml_manager = dynamic_cast<MetaManager&>(this->m_el.m_manager).m_uml_manager;
+                add(uml_manager.createPtr(id));
             }
 
             using ElementPtr = UmlManager::Pointer<Element>;

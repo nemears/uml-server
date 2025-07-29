@@ -164,4 +164,30 @@ TEST_F(GenerativeManagerTest, referenceUmlElement) {
     
     ASSERT_TRUE(type_inst->getProxySet(uml_typed_property.id()).front());
     ASSERT_EQ(type_inst->getProxySet(uml_typed_property.id()).front().id(), uml_package.id());
+    auto result = meta_manager.emit_meta_element(*type_inst);
+    auto expected = std::format(
+            "{{\"TestType\": {{\"id\": \"{}\", \"umlElement\": [\"{}\"]}}}}", 
+            type_inst.id().string(), 
+            uml_package.id().string()
+    );
+    ASSERT_EQ(expected, result);
+}
+
+TEST_F(GenerativeManagerTest, reloadStereotypedElement) {
+    BasicGenerativeManager m;
+    auto stereotype = m.create<Stereotype>();
+    stereotype->setName("meta");
+    auto property = m.create<Property>();
+    property->setName("string_val");
+    stereotype->getOwnedAttributes().add(property);
+    property->setType(string_type_id);
+
+    ID meta_manager_id = m.generate(*stereotype);
+    auto& meta_manager = m.get_meta_manager(meta_manager_id);
+    auto stereotyped_uml_element = m.create<Package>();
+    auto first_stereotype_inst = meta_manager.apply(*stereotyped_uml_element, stereotype.id());
+    auto data_to_parse = std::format("{{\"Package\": {{\"id\": \"{}\", \"appliedStereotypes\": [{{\"manager\": \"{}\", \"data\": {{\"meta\": {{\"id\": \"{}\", \"string_val\": \"foo\"}}}}}}]}}}}", stereotyped_uml_element.id().string(), meta_manager_id.string(), first_stereotype_inst.id().string());
+    auto reloaded_stereotyped_uml_element = m.parse_individual(data_to_parse);
+    ASSERT_EQ(reloaded_stereotyped_uml_element.id(), stereotyped_uml_element.id());
+    ASSERT_EQ(first_stereotype_inst->data.at(property.id())->getData(), "foo");
 }
